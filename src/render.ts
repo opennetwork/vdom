@@ -6,19 +6,23 @@ function isText(node: HTMLElement | Text): node is Text {
   return node.nodeType === node.TEXT_NODE;
 }
 
-export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNode, factory?: ElementFactory, tree?: Tree, maximumDepth: number = 10): Promise<void> {
+export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNode, factory?: ElementFactory, tree?: Tree, maximumDepth: number = 10, childIndex: number = 0): Promise<void> {
   const events = fromVNode(root, vnode, tree, factory);
 
   function mount(element: Node) {
     if (element.childNodes.length) {
-      const currentFirstChild = element.childNodes.item(0);
-      if (currentFirstChild === element) {
+      if (element.childNodes.length < (childIndex + 1)) {
+        throw new Error("Expected stable length of children nodes, please ensure if using an index to only use over 0 if there has been a previous render with the exact same, or larger, children length");
+      }
+      const currentChild = element.childNodes.item(childIndex);
+      if (currentChild === element) {
         return; // No need, already there
       }
-      element.replaceChild(element, currentFirstChild);
+      element.replaceChild(element, currentChild);
     } else {
       element.appendChild(element);
     }
+
   }
 
   const eventsIterator = events[Symbol.asyncIterator]();
@@ -117,7 +121,7 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
           const childrenIterator = node.children[Symbol.asyncIterator]();
 
           let nextChildren: IteratorResult<AsyncIterable<VNode>> = await childrenIterator.next(),
-            nextChildrenPromise,
+            nextChildrenPromise: Promise<IteratorResult<AsyncIterable<VNode>>>,
             previousCycleAbandonedPromise: Promise<boolean> = Promise.resolve(new Promise(() => {}));
 
           if (nextChildren.done) {
@@ -129,8 +133,17 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
           while (!nextChildren.done) {
             nextChildrenPromise = childrenIterator.next();
 
-            do {
-              // Each child will wait for its previous render
+            // Each child will wait for its previous render
+            const shouldMount = await Promise.race([
+              childrenCycle(),
+              nextChildrenPromise.then(() => false)
+            ]);
+
+            if (shouldMount) {
+              mount(workingNode);
+            }
+
+            async function childrenCycle() {
               const childrenSetupPromise = asyncExtendedIterable(nextChildren.value).map((child: VNode) => {
                 const previousPromises = childrenPromises.get(child) || [];
 
@@ -165,7 +178,7 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
               ]);
 
               if (!shouldMount) {
-                continue;
+                return false;
               }
 
               const previousChildren = currentChildren;
@@ -187,23 +200,22 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
                 .then(() => new Promise(() => {}));
 
               if (getChildrenPromiseCount() === 0) {
-                mount(workingNode);
-                continue;
+                return true;
               }
 
               do {
                 const fragment = root.ownerDocument.createDocumentFragment();
                 const nodes: Node[] = (
                   await Promise.all(
-                  currentChildren.map(
-                    // If we have a child with no promise then it could have been unmounted or not wanting mounting yet
-                    // The default shows this, however the default will never be used
-                    // TODO implementing progressive mounting using this
-                    (child): Promise<Node> => (childrenPromises.get(child) || [Promise.resolve(undefined)])[0]
+                    currentChildren.map(
+                      // If we have a child with no promise then it could have been unmounted or not wanting mounting yet
+                      // The default shows this, however the default will never be used
+                      // TODO implementing progressive mounting using this
+                      (child): Promise<Node> => (childrenPromises.get(child) || [Promise.resolve(undefined)])[0]
+                    )
                   )
                 )
-              )
-              .filter(node => node);
+                  .filter(node => node);
 
                 if (typeof fragment.append === "function") {
                   fragment.append(...nodes);
@@ -218,18 +230,12 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
                   workingNode = workingNode.cloneNode(false);
                 }
                 workingNode.appendChild(fragment);
-                mount(workingNode);
               } while (getChildrenPromiseCount() > 0);
 
-            } while (false);
+              return true;
+            }
 
             nextChildren = await nextChildrenPromise;
-
-            function getChildrenPromiseCount() {
-              return currentChildren
-                .map(vnode => (childrenPromises.get(vnode) || []).length)
-                .reduce((sum, length) => sum + length);
-            }
           }
         } while (false);
 
@@ -242,6 +248,12 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
     } catch (mainError) {
       appendError(`${iteration}: Main cycle VNode error`, mainError);
     }
+  }
+
+  function getChildrenPromiseCount() {
+    return currentChildren
+      .map(vnode => (childrenPromises.get(vnode) || []).length)
+      .reduce((sum, length) => sum + length);
   }
 
   function appendError(message: string, givenError: unknown) {
