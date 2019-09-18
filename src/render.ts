@@ -1,6 +1,6 @@
 import { ElementFactory, fromVNode, VDOMHydrateEvent } from "./events";
 import { Tree, VNode } from "@opennetwork/vnode";
-import { asyncExtendedIterable, asyncIterable } from "iterable";
+import { asyncExtendedIterable, asyncIterable, source } from "iterable";
 
 function isText(node: HTMLElement | Text): node is Text {
   return node.nodeType === node.TEXT_NODE;
@@ -33,6 +33,7 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
   const childrenPromises = new WeakMap<VNode, Promise<Node>[]>();
   const abandonedChildrenDepth: Promise<unknown>[] = [];
   let abandonedChildren: VNode[] = [];
+  let waitingChildren: VNode[] = [];
   let currentChildren: VNode[] = [];
 
   let error: Error & {
@@ -87,6 +88,8 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
   } catch (anyError) {
     appendError("Root cycle error", anyError);
   } finally {
+    abandon(waitingChildren);
+    waitingChildren = [];
     await Promise.all([
       drainAbandonedPromises(),
       drainChildrenPromises()
@@ -144,9 +147,9 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
             }
 
             async function childrenCycle() {
-              const childrenSetupPromise = asyncExtendedIterable(nextChildren.value).map((child: VNode) => {
-                const previousPromises = childrenPromises.get(child) || [];
 
+              const children = asyncExtendedIterable(nextChildren.value).map((child: VNode) => {
+                const previousPromises = childrenPromises.get(child) || [];
                 // Remove any promises that are too deep, we will hold onto these promises to catch any errors
                 if (previousPromises.length > maximumDepth) {
                   const removedPromises = previousPromises.splice(0, previousPromises.length - maximumDepth);
@@ -167,8 +170,23 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
                   return fragment;
                 })();
                 childrenPromises.set(child, previousPromises.concat(currentPromise));
+                waitingChildren.push(child);
                 return child;
-              }).toArray();
+              });
+
+              const childrenIterator = children[Symbol.asyncIterator]();
+
+              const target = source(
+                async () => {
+                  const next = await childrenIterator.next();
+                  if (next.done) {
+                    target.close();
+                  }
+                  return next.value;
+                }
+              );
+
+              const childrenSetupPromise = asyncExtendedIterable(target).toArray();
 
               const shouldMount = await Promise.race([
                 childrenSetupPromise.then(() => true),
@@ -178,17 +196,16 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
               ]);
 
               if (!shouldMount) {
+                // TODO decide if we should cancel when we have all of the children from the mounting cycle
+                // target.close()
                 return false;
               }
 
-              const previousChildren = currentChildren;
+              abandon(currentChildren);
               currentChildren = await childrenSetupPromise;
-
-              abandonedChildren = abandonedChildren
-              // New abandoned
-                .concat(previousChildren.filter(value => !currentChildren.includes(value)))
-                // Previous abandoned
-                .filter(value => !currentChildren.includes(value));
+              // Anyone that was waiting, will now no longer be rendered
+              abandon(waitingChildren.filter(value => currentChildren.includes(value)));
+              waitingChildren = [];
 
               const currentAbandonedChildren = abandonedChildren;
 
@@ -248,6 +265,14 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
     } catch (mainError) {
       appendError(`${iteration}: Main cycle VNode error`, mainError);
     }
+  }
+
+  function abandon(children: VNode[]) {
+    abandonedChildren = abandonedChildren
+    // New abandoned
+      .concat(children.filter(value => !currentChildren.includes(value)))
+      // Previous abandoned
+      .filter(value => !currentChildren.includes(value));
   }
 
   function getChildrenPromiseCount() {
