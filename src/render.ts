@@ -160,7 +160,8 @@ export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNod
               const shouldMount = await Promise.race([
                 childrenSetupPromise.then(() => true),
                 nextChildrenPromise.then(() => false),
-                previousCycleAbandonedPromise
+                // If this one completed, something is messed!!
+                previousCycleAbandonedPromise.then(() => false)
               ]);
 
               if (!shouldMount) {
