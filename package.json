@@ -1,0 +1,28 @@
+{
+  "name": "@opennetwork/vdom",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc --declaration && npm run tslint",
+    "watch": "tsc -w",
+    "tslint": "tslint -c tslint.json -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {},
+  "dependencies": {
+    "@opennetwork/vnode": "^12.1.0",
+    "iterable": "^5.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opennetwork/vdom.git"
+  },
+  "devDependencies": {
+    "esm": "^3.2.25",
+    "jsdom": "^15.1.1",
+    "tslint": "^5.20.0",
+    "typescript": "^3.6.3"
+  }
+}
