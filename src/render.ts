@@ -1,460 +1,386 @@
 import { ElementFactory, fromVNode, VDOMHydrateEvent } from "./events";
-import { Tree, VNode } from "@opennetwork/vnode";
-import { asyncExtendedIterable, asyncIterable, source } from "iterable";
+import { Fragment, SourceReference, Tree, VNode } from "@opennetwork/vnode";
+import {
+  asyncExtendedIterable, asyncHooks,
+  asyncIterable,
+  extendedIterable,
+  isPromise,
+  source,
+  TransientAsyncIteratorSource
+} from "iterable";
 
 function isText(node: HTMLElement | Text): node is Text {
-  return node.nodeType === node.TEXT_NODE;
+  return !!(node && node.nodeType === node.TEXT_NODE);
 }
 
 export async function render(vnode: AsyncIterable<VNode>, root: Node & ParentNode, factory?: ElementFactory, tree?: Tree, maximumDepth: number = 10, childIndex: number = 0): Promise<void> {
-  const events = fromVNode(root, vnode, tree, factory);
-
-  function mount(element: Node) {
-    if (element.childNodes.length) {
-      if (element.childNodes.length < (childIndex + 1)) {
-        throw new Error("Expected stable length of children nodes, please ensure if using an index to only use over 0 if there has been a previous render with the exact same, or larger, children length");
+  for await (const node of produce(vnode, root, factory, tree, maximumDepth)) {
+    console.log({ node });
+    if (node.nodeType === node.DOCUMENT_FRAGMENT_NODE) {
+      // If we have a fragment, then we want to be able to append to whatever index we're at
+      // this should only happen top level, as once we have children we will flatten out our fragments
+      while (root.childNodes.length > childIndex) {
+        root.removeChild(root.lastChild);
       }
-      const currentChild = element.childNodes.item(childIndex);
-      if (currentChild === element) {
-        return; // No need, already there
-      }
-      element.replaceChild(element, currentChild);
+      root.appendChild(node);
     } else {
-      element.appendChild(element);
+      if (root.childNodes.length) {
+        if (root.childNodes.length < (childIndex + 1)) {
+          throw new Error("Expected stable length of children nodes, please ensure if using an index to only use over 0 if there has been a previous render with the exact same, or larger, children length");
+        }
+        const currentChild = root.childNodes.item(childIndex);
+        if (currentChild === node) {
+          continue; // No need, already there
+        }
+        root.replaceChild(node, currentChild);
+      } else {
+        root.appendChild(node);
+      }
     }
-
+    console.log("Next loop", root.ownerDocument.body.outerHTML);
   }
+}
 
-  const eventsIterator = events[Symbol.asyncIterator]();
-
-  let next: IteratorResult<VDOMHydrateEvent> = await eventsIterator.next(),
-    nextPromise;
-
-  const childrenPromises = new WeakMap<VNode, Promise<Node>[]>();
-  const abandonedChildrenDepth: Promise<unknown>[] = [];
-  let abandonedChildren: VNode[] = [];
-  let waitingChildren: VNode[] = [];
-  let currentChildren: VNode[] = [];
+async function *produce(vnode: AsyncIterable<VNode>, root: Node & ParentNode, factory?: ElementFactory, tree?: Tree, maximumDepth: number = 10): AsyncIterable<Node> {
+  const childrenUpdates = new Map<SourceReference, [TransientAsyncIteratorSource<VNode>, AsyncIterator<Node>]>();
 
   let error: Error & {
     vnode?: AsyncIterable<VNode>,
-    childrenPromises?: WeakMap<VNode, Promise<Node>[]>,
-    currentCycle?: IteratorResult<VDOMHydrateEvent>,
-    currentChildren?: VNode[],
-    abandonedChildren?: VNode[],
-    abandonedChildrenDepth?: Promise<unknown>[],
     root?: Node & ParentNode,
-    maximumDepth?: number,
-    errors?: any[],
-    depth?: number,
-    currentIteration?: number;
+    errors?: any[]
   } = undefined;
 
-  let depth: number = -1;
-  let currentIteration: number = -1;
-  let iterationPromise: Promise<unknown> = Promise.resolve();
+  type CycleDescriptor = [HTMLElement | Text | undefined, VNode, VNode[], AsyncIterator<Node>[]];
 
   try {
-
-    while (!next.done) {
-      nextPromise = eventsIterator.next();
-
-      if (depth > maximumDepth) {
-        const depthError: Error = new Error("Main cycle depth exceeded maximum");
-        appendError(depthError.message, depthError);
-        break;
-      }
-
-      iterationPromise = iterationPromise
-        .then(() => cylceIteration())
-        // We completed this cycle, so the depth can go down
-        .then(() => depth -= 1);
-
-      const completedIteration = await Promise.race([
-        iterationPromise.then(() => true),
-        nextPromise.then(() => false)
-      ]);
-
-      // If we have caught up, then we can reset our depth
-      if (completedIteration) {
-        depth = 0;
-      } else {
-        depth += 1;
-      }
-
-      next = await nextPromise;
-    }
-
+    yield* asyncExtendedIterable(fromVNode(root, vnode, tree, factory))
+      .flatMap(event)
+      .flatMap(processNextCycle);
   } catch (anyError) {
     appendError("Root cycle error", anyError);
   } finally {
-    abandon(waitingChildren);
-    waitingChildren = [];
-    await Promise.all([
-      drainAbandonedPromises(),
-      drainChildrenPromises()
-    ]);
+    // Ensure we are closed
+    extendedIterable(childrenUpdates.values())
+      .map(updater => updater[0])
+      .forEach(source => source.close());
+
+    // Ensure these are never lost
+    extendedIterable(childrenUpdates.values())
+      .map(updater => updater[0])
+      .filter(source => !!source.error)
+      .forEach(source => appendError("Child update error", source.error));
   }
 
   if (error) {
     throw error;
   }
 
-  async function cylceIteration() {
-    currentIteration += 1;
-    return cycle(depth, currentIteration);
+  async function* processNextCycle(descriptor: CycleDescriptor): AsyncIterable<Node> {
+    if (error) {
+      throw error;
+    }
+
+    const [documentNode, node, children] = descriptor;
+    // console.trace(documentNode, node);
+    if (!node.children || isText(documentNode) || children.length === 0) {
+
+      // Remove any children from the node
+      if (documentNode && documentNode.childNodes.length) {
+        while (documentNode.firstChild) {
+          documentNode.removeChild(documentNode.firstChild);
+        }
+      }
+
+      return yield documentNode;
+    }
+
+    for await (const fragment of produceChildrenFragments(descriptor)) {
+      if (error) {
+        return;
+      }
+
+      // To debug the fragment, we can peek inside using this
+      (function() {
+        const childNodes: Node[] = [];
+        fragment.childNodes.forEach(node => childNodes.push(node));
+        console.log(childNodes);
+      })();
+
+      if (!documentNode) {
+        yield fragment;
+
+        if (node.reference === Fragment) {
+          break;
+        } else {
+          continue;
+        }
+      }
+
+      const fragmentLength = fragment.childNodes.length;
+
+      if (documentNode.childNodes.length) {
+        // Take a copy as we will be removing nodes as we add them to the DOM
+        const childNodes: Node[] = [];
+        fragment.childNodes.forEach(node => childNodes.push(node));
+
+        childNodes.forEach(
+          (node, index) => {
+            console.log(node, index, documentNode.childNodes.length, documentNode.childNodes.length > index);
+            // If we don't yet have a child at that index, append, else lets replace
+            if (documentNode.childNodes.length > index) {
+              const currentNode = documentNode.childNodes.item(index);
+              if (currentNode === node) {
+                return;
+              }
+              documentNode.replaceChild(node, currentNode);
+            } else {
+              documentNode.appendChild(node);
+            }
+          }
+        );
+      } else {
+        // We are free to append our entire fragment
+        documentNode.appendChild(fragment);
+      }
+
+      // Remove any excess
+      while (documentNode.childNodes.length > fragmentLength) {
+        documentNode.removeChild(documentNode.lastChild);
+      }
+
+      yield documentNode;
+
+      if (node.reference === Fragment) {
+        break;
+      }
+    }
+
   }
 
-  async function cycle(depth: number, iteration: number) {
+  // This will produce a new fragment every time there is an update for a child
+  async function *produceChildrenFragments([documentNode, node, children, childrenProducers]: CycleDescriptor): AsyncIterable<DocumentFragment> {
+    const results: Node[] = children.map(() => undefined);
+    const expandedResults: Node[][] = children.map(() => undefined);
+
+    type PromiseResult = [number, IteratorResult<Node, Node>];
+
+    const remainingChildrenProducerPromises: Promise<PromiseResult>[] = childrenProducers
+      .map((producer, index): Promise<PromiseResult> => producer.next().then((result): PromiseResult => [index, result]));
+    let filteredRemainingChildrenProducerPromises: Promise<PromiseResult>[] = remainingChildrenProducerPromises;
+
+    let previousResults: Node[];
+
     try {
-      while (!next.done) {
-        // Start the next one so we can see it coming
-        nextPromise = eventsIterator.next();
+      do {
+        const next: PromiseResult[] = await Promise.race([
+          Promise.all(filteredRemainingChildrenProducerPromises),
+          Promise.race(
+            filteredRemainingChildrenProducerPromises.map(promise => promise.then(result => [result]))
+          )
+        ]);
 
-        do {
-          const { documentNode, node } = next.value;
+        const fragment = root.ownerDocument.createDocumentFragment();
 
-          if (!node.children || isText(documentNode)) {
-            // Nothing else to do, lets add and move on
-            mount(documentNode);
-            continue;
-          }
-
-          let workingNode: Node = documentNode;
-          const childrenIterator = node.children[Symbol.asyncIterator]();
-
-          let nextChildren: IteratorResult<AsyncIterable<VNode>> = await childrenIterator.next(),
-            nextChildrenPromise: Promise<IteratorResult<AsyncIterable<VNode>>>,
-            previousCycleAbandonedPromise: Promise<boolean> = Promise.resolve(new Promise(() => {}));
-
-          if (nextChildren.done) {
-            // We don't have any children, so we have to append and move on
-            mount(documentNode);
-            continue;
-          }
-
-          while (!nextChildren.done) {
-            nextChildrenPromise = childrenIterator.next();
-
-            // Each child will wait for its previous render
-            const shouldMount = await Promise.race([
-              childrenCycle(),
-              nextChildrenPromise.then(() => false)
-            ]);
-
-            if (shouldMount) {
-              mount(workingNode);
-            }
-
-            async function childrenCycle() {
-
-              const children = asyncExtendedIterable(nextChildren.value).map((child: VNode) => {
-                const previousPromises = childrenPromises.get(child) || [];
-                // Remove any promises that are too deep, we will hold onto these promises to catch any errors
-                if (previousPromises.length > maximumDepth) {
-                  const removedPromises = previousPromises.splice(0, previousPromises.length - maximumDepth);
-                  abandonedChildrenDepth.push(...removedPromises);
-                  removedPromises.forEach(promise => promise.then(() => {
-                    // Remove the promise if we ever complete successfully
-                    const index = abandonedChildrenDepth.indexOf(promise);
-                    if (index > -1) {
-                      abandonedChildrenDepth.splice(index, 1);
-                    }
-                  }));
-                }
-
-                const currentPromise = (async () => {
-                  const fragment = root.ownerDocument.createDocumentFragment();
-                  // Single update render
-                  await render(asyncIterable([child]), fragment, factory, undefined);
-                  return fragment;
-                })();
-                childrenPromises.set(child, previousPromises.concat(currentPromise));
-                waitingChildren.push(child);
-                return child;
-              });
-
-              const childrenIterator = children[Symbol.asyncIterator]();
-
-              const target = source(
-                async () => {
-                  const next = await childrenIterator.next();
-                  if (next.done) {
-                    target.close();
-                  }
-                  return next.value;
-                }
-              );
-
-              const childrenSetupPromise = asyncExtendedIterable(target).toArray();
-
-              const shouldMount = await Promise.race([
-                childrenSetupPromise.then(() => true),
-                nextChildrenPromise.then(() => false),
-                // If this one completed, something is messed!!
-                previousCycleAbandonedPromise.then(() => false)
-              ]);
-
-              if (!shouldMount) {
-                // TODO decide if we should cancel when we have all of the children from the mounting cycle
-                // target.close()
-                return false;
-              }
-
-              abandon(currentChildren);
-              currentChildren = await childrenSetupPromise;
-              // Anyone that was waiting, will now no longer be rendered
-              abandon(waitingChildren.filter(value => currentChildren.includes(value)));
-              waitingChildren = [];
-
-              const currentAbandonedChildren = abandonedChildren;
-
-              // This promise is to hold all abandoned children's promises, in case they ever throw an error
-              // This promise will never resolve
-              previousCycleAbandonedPromise = previousCycleAbandonedPromise
-                .then(() => createAbandonedPromise(currentAbandonedChildren))
-                // If we ever succeed, ensure the promise will never continue
-                .then(() => new Promise(() => {}));
-
-              if (getChildrenPromiseCount() === 0) {
-                return true;
-              }
-
-              do {
-                const fragment = root.ownerDocument.createDocumentFragment();
-                const nodes: Node[] = (
-                  await Promise.all(
-                    currentChildren.map(
-                      // If we have a child with no promise then it could have been unmounted or not wanting mounting yet
-                      // The default shows this, however the default will never be used
-                      // TODO implementing progressive mounting using this
-                      (child): Promise<Node> => (childrenPromises.get(child) || [Promise.resolve(undefined)])[0]
-                    )
-                  )
-                )
-                  .filter(node => node);
-
-                if (typeof fragment.append === "function") {
-                  fragment.append(...nodes);
+        next.forEach(
+          ([index, result]) => {
+            if (result.done) {
+              remainingChildrenProducerPromises[index] = undefined;
+            } else {
+              results[index] = result.value;
+              if (!result.value) {
+                expandedResults[index] = undefined;
+              } else {
+                if (result.value.nodeType === root.DOCUMENT_FRAGMENT_NODE) {
+                  const childNodes: Node[] = [];
+                  result.value.childNodes.forEach(node => childNodes.push(node));
+                  expandedResults[index] = childNodes;
                 } else {
-                  for (const node of nodes) {
-                    fragment.appendChild(node);
-                  }
+                  expandedResults[index] = [result.value];
                 }
+              }
 
-                // If we never got to creating children, then we don't need to clone again
-                if (workingNode.childNodes.length) {
-                  workingNode = workingNode.cloneNode(false);
-                }
-                workingNode.appendChild(fragment);
-              } while (getChildrenPromiseCount() > 0);
+              if (children[index].reference === Fragment) {
+                remainingChildrenProducerPromises[index] = undefined;
+              } else {
+                remainingChildrenProducerPromises[index] = childrenProducers[index].next().then((result): PromiseResult => [index, result]);
+              }
 
-              return true;
             }
-
-            nextChildren = await nextChildrenPromise;
           }
-        } while (false);
+        );
 
-        if (error) {
-          break;
-        }
+        expandedResults
+          .filter(results => results)
+          .forEach(results => {
+            results
+              .filter(node => node)
+              .forEach(node => fragment.appendChild(node));
+          });
 
-        next = await nextPromise;
-      }
-    } catch (mainError) {
-      appendError(`${iteration}: Main cycle VNode error`, mainError);
+        filteredRemainingChildrenProducerPromises = remainingChildrenProducerPromises.filter(value => value);
+
+        console.log(filteredRemainingChildrenProducerPromises.length);
+
+        // if (previousResults && results.length === previousResults.length) {
+        //   if (results.every((value, index) => value === previousResults[index])) {
+        //     console.trace("Skipping yield, same values", results);
+        //     continue; // No need to tell anyone about something that hasn't changed
+        //   }
+        // }
+
+        yield fragment;
+
+        previousResults = results;
+      } while (filteredRemainingChildrenProducerPromises.length && !error);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      await settlePromises(filteredRemainingChildrenProducerPromises);
     }
   }
 
-  function abandon(children: VNode[]) {
-    abandonedChildren = abandonedChildren
-    // New abandoned
-      .concat(children.filter(value => !currentChildren.includes(value)))
-      // Previous abandoned
-      .filter(value => !currentChildren.includes(value));
-  }
+  async function *event({ documentNode, node }: VDOMHydrateEvent): AsyncIterable<CycleDescriptor> {
+    if (error) {
+      // Abort if we got here
+      return;
+    }
+    try {
+      if (!node.children || isText(documentNode)) {
+        // Nothing else to do, lets add and move on
+        return yield [documentNode, node, [], []];
+      }
 
-  function getChildrenPromiseCount() {
-    return currentChildren
-      .map(vnode => (childrenPromises.get(vnode) || []).length)
-      .reduce((sum, length) => sum + length);
+      let currentCycle: CycleDescriptor;
+
+      for await (const nextChildren of node.children) {
+        yield currentCycle = await childrenSetup(nextChildren);
+      }
+
+      closeChildren(childrenUpdates.keys());
+
+      if (!currentCycle) {
+        // We never ran
+        yield [documentNode, node, [], []];
+      }
+
+      async function childrenSetup(nextChildren: AsyncIterable<VNode>): Promise<CycleDescriptor> {
+        const children = await asyncExtendedIterable(nextChildren).toArray();
+
+        // Setup our production
+        const updates = children.map(
+          (child): [{ push(node: VNode): void }, AsyncIterator<Node, Node>] => {
+
+            // Fragments will never receive a second update
+            if (child.reference === Fragment) {
+              return [[], asyncHooks<Node, AsyncIterable<Node>, AsyncIterator<Node>>({
+                done: () => {
+                  console.trace("Fragment complete");
+                },
+                preYield: () => {
+                  console.trace("Fragment pre yield");
+                },
+                postYield: () => {
+                  console.trace("Fragment post yield");
+                }
+              })(produce(asyncIterable([child]), root, factory, tree, maximumDepth))[Symbol.asyncIterator]()];
+            }
+
+            let updater = childrenUpdates.get(child.reference);
+            if (updater) {
+              return updater;
+            }
+            const target = source<VNode>();
+            // This forces the target to hold onto values
+            const targetIterator = target[Symbol.asyncIterator]();
+            const produceSource = source(async () => {
+              const next = await targetIterator.next();
+              if (next.done) {
+                produceSource.close();
+                return undefined;
+              }
+              return next.value;
+            });
+            const iterator = produce(produceSource, root, factory, tree, maximumDepth)[Symbol.asyncIterator]();
+            updater = [target, iterator];
+            if (child.reference !== Fragment) {
+              childrenUpdates.set(child.reference, updater);
+            }
+            return updater;
+          }
+        );
+
+        // Close off old updates
+        closeChildren(
+          extendedIterable(childrenUpdates.keys())
+            .filter(key => children.findIndex(child => child.reference === key) === -1)
+        );
+
+        // Add our current children to our updates
+        children
+          .filter(child => child.reference !== Fragment)
+          .forEach((child, index) => updates[index][0].push(child));
+
+        const nextChildrenProducers = updates.map(updater => updater[1]);
+        return [documentNode, node, children, nextChildrenProducers];
+      }
+    } catch (mainError) {
+      appendError(`Main cycle VNode error`, mainError);
+    }
   }
 
   function appendError(message: string, givenError: unknown) {
+    console.warn(message, givenError);
     error = error || new Error(`${message}: ${givenError}`);
     error.errors = error.errors || [];
     error.errors.push(givenError);
-    error.currentChildren = currentChildren;
-    error.maximumDepth = maximumDepth;
     error.root = root;
     error.vnode = vnode;
-    error.abandonedChildrenDepth = abandonedChildrenDepth;
-    error.childrenPromises = childrenPromises;
-    error.currentCycle = next;
-    error.abandonedChildren = abandonedChildren;
-    error.depth = depth;
-    error.currentIteration = currentIteration;
   }
 
-  interface PromiseDescriptor {
-    node?: VNode;
-    promise?: Promise<unknown>;
-    error?: unknown;
+  function closeChildren(children: Iterable<SourceReference>) {
+    console.log(children);
+    extendedIterable(children).forEach(key => {
+      const updater = childrenUpdates.get(key);
+      console.log({ updater }, key);
+      if (updater) {
+        updater[0].close();
+      }
+      childrenUpdates.delete(key);
+    });
   }
 
-  function createPromiseDescriptors(nodes: VNode[]) {
-    return nodes
-      .map((node): PromiseDescriptor[] => (childrenPromises.get(node) || []).map(promise => ({ promise, node })))
-      .filter(promises => !!promises.length)
-      .reduce((all, promises): PromiseDescriptor[] => all.concat(promises), [])
-      .map(
-        ({ promise, node }) => promise.then(
-          (): PromiseDescriptor => ({ node, promise, error: undefined }),
-          (error): PromiseDescriptor => ({ node, error, promise })
+  async function settlePromises(promises: Promise<unknown>[]): Promise<void> {
+    interface PromiseDescriptor {
+      promise?: Promise<unknown>;
+      error?: unknown;
+    }
+
+    const withDescriptions = promises
+      .filter(promise => isPromise(promise))
+      .map((promise): Promise<PromiseDescriptor> => promise
+        .then(
+          (): PromiseDescriptor => ({ promise }),
+          (error): PromiseDescriptor => ({ promise, error })
         )
       );
-  }
 
-  async function drainChildrenPromises() {
-    // Wait for everything to clear, this allows errors to stack as we receive them
-    // It is expected for currentChildren to decrease in size till there are no more children left
-    // meaning that all promises have settled
-    let previousLength = abandonedChildren.length,
-      cyclesStable = 0;
-    while (currentChildren.length) {
-      if (previousLength === currentChildren.length) {
-        cyclesStable += 1;
-      } else {
-        cyclesStable = 0;
-        previousLength = currentChildren.length;
-      }
-      // Wait for everything to settle if there are any promises remaining
-      try {
-        if (cyclesStable > maximumDepth) {
-          const stableError: Error & {
-            cyclesStable?: number,
-            maximumDepth?: number,
-            abandonedChildren?: VNode[]
-          } = new Error("Current children cycle count has been detected to never end");
-          stableError.cyclesStable = cyclesStable;
-          stableError.maximumDepth = maximumDepth;
-          stableError.abandonedChildren = abandonedChildren;
-          appendError(stableError.message, stableError);
-        } else {
-          await createChildrenPromise(abandonedChildren);
-        }
-      } catch (childError) {
-        appendError("Nested VNode child error", childError);
-      }
-    }
-  }
-
-  async function createChildrenPromise(currentChildren: VNode[]) {
-    const promises = createPromiseDescriptors(currentChildren);
-
-    const { promise, error, node } = await Promise.race([
-      // If we get an error out of any of these, then
-      Promise.all(promises).then((): PromiseDescriptor => ({ promise: undefined, error: undefined, node: undefined })),
-      // Only if one of the promises produce an error will we return with one of them
-      Promise.race(
-        promises.map(promise => promise.then((): Promise<PromiseDescriptor> => new Promise(() => {})))
-      )
+    const result: PromiseDescriptor = await Promise.race([
+      Promise.all(promises).then(() => undefined),
+      Promise.race(withDescriptions)
     ]);
 
-    if (error) {
-      if (!node) {
-        throw new Error("In an unexpected state, we thought we would have a node here");
-      }
-      // Forget the one with the error
-      forgetChildren([node]);
-    } else if (node || promise) {
-      throw new Error("In an unexpected state, didn't think there would be a node or promise here");
-    } else {
-      // Forget everything
-      forgetChildren(currentChildren);
+    if (!result) {
+      return;
     }
-  }
 
-  async function drainAbandonedPromises() {
-    // Wait for everything to clear, this allows errors to stack as we receive them
-    // It is expected for abandonedChildren to decrease in size till there are no more children left
-    // meaning that all promises have settled
-    let previousLength = abandonedChildren.length,
-      cyclesStable = 0;
-    while (abandonedChildren.length) {
-      if (previousLength === abandonedChildren.length) {
-        cyclesStable += 1;
-      } else {
-        cyclesStable = 0;
-        previousLength = abandonedChildren.length;
-      }
-      // Wait for everything to settle if there are any promises remaining
-      try {
-        if (cyclesStable > maximumDepth) {
-          const stableError: Error & {
-            cyclesStable?: number,
-            maximumDepth?: number,
-            abandonedChildren?: VNode[]
-          } = new Error("Abandoned children cycle count has been detected to never end");
-          stableError.cyclesStable = cyclesStable;
-          stableError.maximumDepth = maximumDepth;
-          stableError.abandonedChildren = abandonedChildren;
-          appendError(stableError.message, stableError);
-        } else {
-          await createAbandonedPromise(abandonedChildren);
-        }
-      } catch (childError) {
-        appendError("Nested VNode child error", childError);
-      }
+    if (result.error) {
+      appendError("Nested promise error", result.error);
     }
-  }
 
-  // TODO have this reviewed, I have a feeling that a promise _could_ be forgotten where it shouldn't have been
-  async function createAbandonedPromise(cycleAbandonedChildren: VNode[]) {
-    const promises = createPromiseDescriptors(cycleAbandonedChildren);
-
-    const { promise, error, node } = await Promise.race([
-      // If we get an error out of any of these, then
-      Promise.all(promises).then((): PromiseDescriptor => ({ promise: undefined, error: undefined, node: undefined })),
-      // Only if one of the promises produce an error will we return with one of them
-      Promise.race(
-        promises.map(promise => promise.then((): Promise<PromiseDescriptor> => new Promise(() => {})))
-      )
-    ]);
-
-    if (error) {
-      if (!node) {
-        throw new Error("In an unexpected state, we thought we would have a node here");
-      }
-      // Forget the one with the error
-      forgetAbandoned([node]);
-    } else if (node || promise) {
-      throw new Error("In an unexpected state, didn't think there would be a node or promise here");
-    } else {
-      // Forget everything
-      forgetAbandoned(cycleAbandonedChildren);
-    }
-  }
-
-  function forgetChildren(toForget: VNode[]) {
-    currentChildren = forget(toForget, currentChildren);
-  }
-
-  function forgetAbandoned(toForget: VNode[]) {
-    // If we get here, we will never receive an error from these
-    abandonedChildren = forget(toForget, abandonedChildren);
-  }
-
-  function forget(toForget: VNode[], from: VNode[]) {
-    return from
-      .filter(child => {
-        // Always ignore current children
-        if (currentChildren.includes(child)) {
-          return true;
-        }
-        return !toForget.includes(child);
-      });
+    return settlePromises(
+      promises
+        .filter(promise => isPromise(promise) && result.promise !== promise)
+    );
   }
 
 }

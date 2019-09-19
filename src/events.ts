@@ -2,21 +2,17 @@ import {
   Fragment,
   isScalarVNode,
   isSourceReference,
-  SourceReference,
   VContextHydrateEvent,
   VNode,
   Tree
 } from "@opennetwork/vnode";
 import {
   asyncExtendedIterable,
-  ExtendedAsyncIterable,
-  isPromise,
-  source,
-  TransientAsyncIteratorSource
+  isPromise
 } from "iterable";
 
 export interface VDOMHydrateEvent extends VContextHydrateEvent {
-  documentNode: HTMLElement | Text;
+  documentNode?: HTMLElement | Text;
   previous?: VDOMHydrateEvent;
 }
 
@@ -29,8 +25,14 @@ export function fromVNode(root: Node & ParentNode, vnode: AsyncIterable<VNode>, 
   return asyncExtendedIterable(vnode)
     .map(node => ({ node, tree }))
     .map(async event => {
-      currentEvent = await elementFactory(currentEvent, root, event, factory);
-      return currentEvent;
+      try {
+        currentEvent = await elementFactory(currentEvent, root, event, factory);
+        return currentEvent;
+      } catch (error) {
+        const nextError: Error & { error?: unknown } = new Error("Found error while producing a DOM element from a VNode");
+        nextError.error = error;
+        throw nextError;
+      }
     });
 }
 
@@ -73,7 +75,7 @@ function isSimilarVNode(left: VNode, right: VNode): boolean {
 
 async function elementFactory(currentEvent: VDOMHydrateEvent, root: Node & ParentNode, event: VContextHydrateEvent, factory: ElementFactory | undefined): Promise<VDOMHydrateEvent | undefined> {
   if (event.node.reference === Fragment) {
-    throw new Error("Did not expect to see a Fragment here");
+    return { ...event, documentNode: undefined };
   }
   if (typeof factory === "function") {
     let result = factory(event);
@@ -89,7 +91,7 @@ async function elementFactory(currentEvent: VDOMHydrateEvent, root: Node & Paren
     return undefined;
   }
   // Retain previous documentNode if the vnode is of similar shape & same reference
-  if (currentEvent && isSimilarVNode(currentEvent.node, event.node)) {
+  if (currentEvent && currentEvent.documentNode && isSimilarVNode(currentEvent.node, event.node)) {
     return {
       ...event,
       documentNode: currentEvent.documentNode
@@ -106,8 +108,8 @@ async function elementFactory(currentEvent: VDOMHydrateEvent, root: Node & Paren
   };
 
   async function getNode(): Promise<HTMLElement | Text> {
-    // If we have no given options or children, then we have a text node
-    if (isScalarVNode(event.node) && !event.node.options && !event.node.children && typeof event.node.source !== "symbol") {
+    // If we have no given options, then we have a text node
+    if (isScalarVNode(event.node) && !event.node.options && typeof event.node.source !== "symbol") {
       return root.ownerDocument.createTextNode(event.node.source.toString());
     }
 
