@@ -1,8 +1,8 @@
-import { ElementFactory, fromVNode, VDOMHydrateEvent } from "./events";
+import { ElementFactory, elementFactory } from "./element";
 import { Fragment, SourceReference, Tree, VNode } from "@opennetwork/vnode";
 import {
   asyncExtendedIterable, asyncHooks,
-  asyncIterable,
+  asyncIterable, asyncIterator,
   extendedIterable,
   isPromise,
   source,
@@ -53,9 +53,73 @@ async function *produce(vnode: AsyncIterable<VNode>, root: Node & ParentNode, fa
   type CycleDescriptor = [HTMLElement | Text | undefined, VNode, VNode[], AsyncIterator<Node>[]];
 
   try {
-    yield* asyncExtendedIterable(fromVNode(root, vnode, tree, factory))
-      .flatMap(event)
-      .flatMap(processNextCycle);
+    let currentVNode: VNode = undefined,
+      currentDocumentNode: HTMLElement | Text = undefined;
+    for await (const nextVNode of vnode) {
+      console.log({ nextVNode });
+
+      if (error) {
+        break;
+      }
+
+      const previousVNode = currentVNode;
+      const previousDocumentNode = currentDocumentNode;
+
+      currentVNode = nextVNode;
+
+      if (nextVNode.reference === Fragment) {
+        currentDocumentNode = undefined;
+      } else {
+        currentDocumentNode = await elementFactory(root, nextVNode, factory, previousVNode, previousDocumentNode);
+      }
+
+      console.log({ currentDocumentNode });
+
+      if (isText(currentDocumentNode)) {
+        yield currentDocumentNode;
+        continue;
+      }
+
+      for await (const fragment of stageChildren(nextVNode.children)) {
+        console.log({ fragment });
+        if (!currentDocumentNode) {
+          yield fragment;
+          continue;
+        }
+
+        const fragmentLength = fragment.childNodes.length;
+
+        if (currentDocumentNode.childNodes.length) {
+          // Take a copy as we will be removing nodes as we add them to the DOM
+          const childNodes: Node[] = [];
+          fragment.childNodes.forEach(node => childNodes.push(node));
+
+          childNodes.forEach(
+            (node, index) => {
+              // If we don't yet have a child at that index, append, else lets replace
+              if (currentDocumentNode.childNodes.length > index) {
+                const currentNode = currentDocumentNode.childNodes.item(index);
+                if (currentNode === node) {
+                  return;
+                }
+                currentDocumentNode.replaceChild(node, currentNode);
+              } else {
+                currentDocumentNode.appendChild(node);
+              }
+            }
+          );
+        } else if (fragmentLength) {
+          // We are free to append our entire fragment
+          currentDocumentNode.appendChild(fragment);
+        }
+
+        while (currentDocumentNode.childNodes.length > fragmentLength) {
+          currentDocumentNode.removeChild(currentDocumentNode.lastChild);
+        }
+
+        yield currentDocumentNode;
+      }
+    }
   } catch (anyError) {
     appendError("Root cycle error", anyError);
   } finally {
@@ -75,257 +139,167 @@ async function *produce(vnode: AsyncIterable<VNode>, root: Node & ParentNode, fa
     throw error;
   }
 
-  async function* processNextCycle(descriptor: CycleDescriptor): AsyncIterable<Node> {
-    if (error) {
-      throw error;
+  type Updater = [TransientAsyncIteratorSource<VNode>, AsyncIterator<Node>];
+
+  async function* stageChildren(children?: AsyncIterable<AsyncIterable<VNode>>): AsyncIterable<DocumentFragment> {
+
+    if (!children) {
+      return yield root.ownerDocument.createDocumentFragment();
     }
 
-    const [documentNode, node, children] = descriptor;
-    // console.trace(documentNode, node);
-    if (!node.children || isText(documentNode) || children.length === 0) {
+    const childrenIterator: AsyncIterator<AsyncIterable<VNode>, AsyncIterable<VNode>> = children[Symbol.asyncIterator]();
+    let nextChildren = await childrenIterator.next();
 
-      // Remove any children from the node
-      if (documentNode && documentNode.childNodes.length) {
-        while (documentNode.firstChild) {
-          documentNode.removeChild(documentNode.firstChild);
-        }
-      }
-
-      return yield documentNode;
+    if (nextChildren.done) {
+      return yield root.ownerDocument.createDocumentFragment();
     }
 
-    for await (const fragment of produceChildrenFragments(descriptor)) {
-      if (error) {
-        return;
-      }
+    while (!nextChildren.done && !error) {
+      do {
+        const children = await asyncExtendedIterable(nextChildren.value)
+          .toArray();
 
-      // To debug the fragment, we can peek inside using this
-      (function() {
-        const childNodes: Node[] = [];
-        fragment.childNodes.forEach(node => childNodes.push(node));
-        console.log(childNodes);
-      })();
+        const [updatingChildren, updatingChildrenUpdates] = await updatingChildrenSetup(children);
 
-      if (!documentNode) {
-        yield fragment;
-
-        if (node.reference === Fragment) {
-          break;
-        } else {
-          continue;
-        }
-      }
-
-      const fragmentLength = fragment.childNodes.length;
-
-      if (documentNode.childNodes.length) {
-        // Take a copy as we will be removing nodes as we add them to the DOM
-        const childNodes: Node[] = [];
-        fragment.childNodes.forEach(node => childNodes.push(node));
-
-        childNodes.forEach(
-          (node, index) => {
-            console.log(node, index, documentNode.childNodes.length, documentNode.childNodes.length > index);
-            // If we don't yet have a child at that index, append, else lets replace
-            if (documentNode.childNodes.length > index) {
-              const currentNode = documentNode.childNodes.item(index);
-              if (currentNode === node) {
-                return;
-              }
-              documentNode.replaceChild(node, currentNode);
-            } else {
-              documentNode.appendChild(node);
+        const sources: AsyncIterator<Node>[] = children.map(
+          (child): AsyncIterator<Node> => {
+            if (!child) {
+              return asyncIterator([]);
             }
+            const updatingIndex = updatingChildren.indexOf(child);
+            if (updatingIndex !== -1) {
+              return updatingChildrenUpdates[updatingIndex][1];
+            }
+            if (child.reference !== Fragment) {
+              throw new Error("Didn't expect no updates for non fragment");
+            }
+            return asyncExtendedIterable(child.children).flatMap(async update => {
+              return produce(update, root, factory, tree, maximumDepth);
+            })[Symbol.asyncIterator]();
           }
         );
-      } else {
-        // We are free to append our entire fragment
-        documentNode.appendChild(fragment);
-      }
 
-      // Remove any excess
-      while (documentNode.childNodes.length > fragmentLength) {
-        documentNode.removeChild(documentNode.lastChild);
-      }
+        yield* stageUpdaters(sources);
+      } while (false);
 
-      yield documentNode;
-
-      if (node.reference === Fragment) {
-        break;
-      }
+      nextChildren = await childrenIterator.next();
     }
 
   }
 
-  // This will produce a new fragment every time there is an update for a child
-  async function *produceChildrenFragments([documentNode, node, children, childrenProducers]: CycleDescriptor): AsyncIterable<DocumentFragment> {
-    const results: Node[] = children.map(() => undefined);
-    const expandedResults: Node[][] = children.map(() => undefined);
+  async function *stageUpdaters(updaters: AsyncIterator<Node>[]): AsyncIterable<DocumentFragment> {
+    const results: Node[][] = updaters.map(() => undefined);
 
     type PromiseResult = [number, IteratorResult<Node, Node>];
 
-    const remainingChildrenProducerPromises: Promise<PromiseResult>[] = childrenProducers
-      .map((producer, index): Promise<PromiseResult> => producer.next().then((result): PromiseResult => [index, result]));
-    let filteredRemainingChildrenProducerPromises: Promise<PromiseResult>[] = remainingChildrenProducerPromises;
+    const remainingChildrenProducerPromises = updaters.map((updater, index) => iterate(index, updater));
+    let filteredRemainingChildrenProducerPromises = remainingChildrenProducerPromises;
 
-    let previousResults: Node[];
+    console.log(filteredRemainingChildrenProducerPromises);
 
     try {
-      do {
-        const next: PromiseResult[] = await Promise.race([
-          Promise.all(filteredRemainingChildrenProducerPromises),
-          Promise.race(
-            filteredRemainingChildrenProducerPromises.map(promise => promise.then(result => [result]))
-          )
-        ]);
-
-        const fragment = root.ownerDocument.createDocumentFragment();
-
-        next.forEach(
-          ([index, result]) => {
-            if (result.done) {
-              remainingChildrenProducerPromises[index] = undefined;
-            } else {
-              results[index] = result.value;
-              if (!result.value) {
-                expandedResults[index] = undefined;
-              } else {
-                if (result.value.nodeType === root.DOCUMENT_FRAGMENT_NODE) {
-                  const childNodes: Node[] = [];
-                  result.value.childNodes.forEach(node => childNodes.push(node));
-                  expandedResults[index] = childNodes;
-                } else {
-                  expandedResults[index] = [result.value];
-                }
-              }
-
-              if (children[index].reference === Fragment) {
-                remainingChildrenProducerPromises[index] = undefined;
-              } else {
-                remainingChildrenProducerPromises[index] = childrenProducers[index].next().then((result): PromiseResult => [index, result]);
-              }
-
-            }
-          }
-        );
-
-        expandedResults
-          .filter(results => results)
-          .forEach(results => {
-            results
-              .filter(node => node)
-              .forEach(node => fragment.appendChild(node));
-          });
-
+      while (filteredRemainingChildrenProducerPromises.length) {
+        console.log(filteredRemainingChildrenProducerPromises);
+        const next = await getNextIterations();
+        console.log(next);
+        applyNext(next);
+        const fragment = await getNextFragment();
         filteredRemainingChildrenProducerPromises = remainingChildrenProducerPromises.filter(value => value);
-
-        console.log(filteredRemainingChildrenProducerPromises.length);
-
-        // if (previousResults && results.length === previousResults.length) {
-        //   if (results.every((value, index) => value === previousResults[index])) {
-        //     console.trace("Skipping yield, same values", results);
-        //     continue; // No need to tell anyone about something that hasn't changed
-        //   }
-        // }
-
         yield fragment;
-
-        previousResults = results;
-      } while (filteredRemainingChildrenProducerPromises.length && !error);
-    } catch (e) {
-      console.error(e);
+      }
     } finally {
       await settlePromises(filteredRemainingChildrenProducerPromises);
     }
+
+    function applyNext(next: PromiseResult[]) {
+      next.forEach(
+        ([index, result]) => {
+          if (result.done) {
+            remainingChildrenProducerPromises[index] = undefined;
+          } else {
+            if (!result.value) {
+              results[index] = undefined;
+            } else {
+              if (result.value.nodeType === root.DOCUMENT_FRAGMENT_NODE) {
+                const childNodes: Node[] = [];
+                result.value.childNodes.forEach(node => childNodes.push(node));
+                results[index] = childNodes;
+              } else {
+                results[index] = [result.value];
+              }
+            }
+            remainingChildrenProducerPromises[index] = updaters[index].next().then((result): PromiseResult => [index, result]);
+          }
+        }
+      );
+    }
+
+    async function getNextFragment(): Promise<DocumentFragment> {
+      const fragment = root.ownerDocument.createDocumentFragment();
+      results
+        .filter(group => group)
+        .forEach(group => {
+          group
+            .filter(node => node)
+            .forEach(node => fragment.appendChild(node));
+        });
+      return fragment;
+    }
+
+    function getNextIterations(): Promise<PromiseResult[]> {
+      return Promise.race([
+        Promise.all(filteredRemainingChildrenProducerPromises),
+        Promise.race(
+          filteredRemainingChildrenProducerPromises.map(promise => promise.then(result => [result]))
+        )
+      ]);
+    }
+
+    function iterate(index: number, updator: AsyncIterator<Node>): Promise<PromiseResult> {
+      return updator.next().then(result => [index, result]);
+    }
   }
 
-  async function *event({ documentNode, node }: VDOMHydrateEvent): AsyncIterable<CycleDescriptor> {
-    if (error) {
-      // Abort if we got here
-      return;
-    }
-    try {
-      if (!node.children || isText(documentNode)) {
-        // Nothing else to do, lets add and move on
-        return yield [documentNode, node, [], []];
-      }
+  async function updatingChildrenSetup(children: VNode[]): Promise<[VNode[], Updater[]]> {
+    const updatingChildren: VNode[] = children
+      .filter(child => child && child.reference !== Fragment);
 
-      let currentCycle: CycleDescriptor;
-
-      for await (const nextChildren of node.children) {
-        yield currentCycle = await childrenSetup(nextChildren);
-      }
-
-      closeChildren(childrenUpdates.keys());
-
-      if (!currentCycle) {
-        // We never ran
-        yield [documentNode, node, [], []];
-      }
-
-      async function childrenSetup(nextChildren: AsyncIterable<VNode>): Promise<CycleDescriptor> {
-        const children = await asyncExtendedIterable(nextChildren).toArray();
-
-        // Setup our production
-        const updates = children.map(
-          (child): [{ push(node: VNode): void }, AsyncIterator<Node, Node>] => {
-
-            // Fragments will never receive a second update
-            if (child.reference === Fragment) {
-              return [[], asyncHooks<Node, AsyncIterable<Node>, AsyncIterator<Node>>({
-                done: () => {
-                  console.trace("Fragment complete");
-                },
-                preYield: () => {
-                  console.trace("Fragment pre yield");
-                },
-                postYield: () => {
-                  console.trace("Fragment post yield");
-                }
-              })(produce(asyncIterable([child]), root, factory, tree, maximumDepth))[Symbol.asyncIterator]()];
-            }
-
-            let updater = childrenUpdates.get(child.reference);
-            if (updater) {
-              return updater;
-            }
-            const target = source<VNode>();
-            // This forces the target to hold onto values
-            const targetIterator = target[Symbol.asyncIterator]();
-            const produceSource = source(async () => {
-              const next = await targetIterator.next();
-              if (next.done) {
-                produceSource.close();
-                return undefined;
-              }
-              return next.value;
-            });
-            const iterator = produce(produceSource, root, factory, tree, maximumDepth)[Symbol.asyncIterator]();
-            updater = [target, iterator];
-            if (child.reference !== Fragment) {
-              childrenUpdates.set(child.reference, updater);
-            }
+    const updatingChildrenUpdates: Updater[] = updatingChildren
+      .map(
+        child => {
+          let updater = childrenUpdates.get(child.reference);
+          if (updater) {
             return updater;
           }
-        );
+          const target = source<VNode>();
+          // This forces the target to hold onto values
+          const targetIterator = target[Symbol.asyncIterator]();
+          const produceSource = source(async () => {
+            const next = await targetIterator.next();
+            if (next.done) {
+              produceSource.close();
+              return undefined;
+            }
+            return next.value;
+          });
+          const iterator = produce(produceSource, root, factory, tree, maximumDepth)[Symbol.asyncIterator]();
+          updater = [target, iterator];
+          childrenUpdates.set(child.reference, updater);
+          return updater;
+        }
+      );
 
-        // Close off old updates
-        closeChildren(
-          extendedIterable(childrenUpdates.keys())
-            .filter(key => children.findIndex(child => child.reference === key) === -1)
-        );
+    // Close off old updates
+    closeChildren(
+      extendedIterable(childrenUpdates.keys())
+        .filter(key => updatingChildren.findIndex(child => child.reference === key) === -1)
+    );
 
-        // Add our current children to our updates
-        children
-          .filter(child => child.reference !== Fragment)
-          .forEach((child, index) => updates[index][0].push(child));
+    // Add our current children to our updates
+    updatingChildren
+      .forEach((child, index) => updatingChildrenUpdates[index][0].push(child));
 
-        const nextChildrenProducers = updates.map(updater => updater[1]);
-        return [documentNode, node, children, nextChildrenProducers];
-      }
-    } catch (mainError) {
-      appendError(`Main cycle VNode error`, mainError);
-    }
+    return [updatingChildren, updatingChildrenUpdates];
   }
 
   function appendError(message: string, givenError: unknown) {
@@ -338,10 +312,8 @@ async function *produce(vnode: AsyncIterable<VNode>, root: Node & ParentNode, fa
   }
 
   function closeChildren(children: Iterable<SourceReference>) {
-    console.log(children);
     extendedIterable(children).forEach(key => {
       const updater = childrenUpdates.get(key);
-      console.log({ updater }, key);
       if (updater) {
         updater[0].close();
       }
