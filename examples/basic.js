@@ -12,16 +12,16 @@ const node = createVNode(
       context,
       "div",
       {},
-      createVNode(context, "button", {}),
-      createVNode(
-        context,
-        async function *() {
-          console.log("Start 1");
-          yield createVNode(context, "button", {}, "hello1", "hello2", "hello4");
-          console.log("End 1");
-        },
-        {}
-      )
+      // createVNode(context, "button", {}),
+      // createVNode(
+      //   context,
+      //   async function *() {
+      //     console.log("Start 1");
+      //     yield createVNode(context, "button", {}, "hello1", "hello2", "hello4");
+      //     console.log("End 1");
+      //   },
+      //   {}
+      // )
     );
     console.log("End");
   },
