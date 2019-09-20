@@ -8,11 +8,12 @@ import {
   VNode
 } from "@opennetwork/vnode";
 import { asyncExtendedIterable, asyncIterable } from "iterable";
+import { merge } from "./merge";
 
 export interface DOMNativeVNode extends NativeVNode {
+  source: string;
   options: {
     type: "Element" | "Text",
-    source: string;
     namespace?: string;
     whenDefined?: boolean;
     is?: string;
@@ -55,13 +56,13 @@ export function isDOMNativeVNode(node: VNode): node is DOMNativeVNode {
   }
   return (
     isDOMNativeVNodeLike(node) &&
+    typeof node.source === "string" &&
     !!node.options &&
     typeof node.options.type === "string" &&
     (
       node.options.type === "Element" ||
       node.options.type === "Text"
     ) &&
-    typeof node.options.source === "string" &&
     (
       !node.options.whenDefined ||
       typeof node.options.whenDefined === "boolean"
@@ -94,8 +95,7 @@ function getNativeOptions(vnode: VNode): DOMNativeVNode["options"] {
   // If we have no given options, then we have a text node
   if (isScalarVNode(vnode) && !vnode.options && typeof vnode.source !== "symbol") {
     return {
-      type: "Text",
-      source: String(vnode.source)
+      type: "Text"
     };
   }
 
@@ -106,7 +106,6 @@ function getNativeOptions(vnode: VNode): DOMNativeVNode["options"] {
 
   return {
     type: "Element",
-    source: vnode.source,
     whenDefined: isWhenDefined(vnode.options),
     is: isIsOptions(vnode.options) ? vnode.options.is : undefined,
     namespace: isNamespace(vnode.options) ? vnode.options.namespace : undefined
@@ -119,9 +118,12 @@ export async function *native(options: unknown, children: VNode): AsyncIterable<
     yield children;
   } else {
     yield {
+      source: String(children.source),
       reference: Symbol("DOM Native"),
       native: true,
-      options: nativeOptions
+      options: nativeOptions,
+      // We're going to git these children a few times, so we want to retain our values
+      children: asyncExtendedIterable(children.children).retain()
     };
   }
 }

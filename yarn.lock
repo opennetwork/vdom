@@ -484,6 +484,11 @@ iterable@^5.2.2:
   resolved "https://registry.npmjs.org/iterable/-/iterable-5.2.2.tgz#6f38e7f509193cc611eb6b968059ba197d84ad2e"
   integrity sha512-QsXb9q65zwEtJMI0YWPdQYg9pwjW0v1o5eoLm1kdmUQNENz0l4q6o3ZCG8TrOxv0F9eKmDYx2/nvI8TrvNYCHg==
 
+iterable@^5.4.0:
+  version "5.4.0"
+  resolved "https://registry.npmjs.org/iterable/-/iterable-5.4.0.tgz#380d058ad76a90058e6845b925d907f229d5f768"
+  integrity sha512-c9VDVCSZAtc9b4fEC9O5B/CllthoApOIzKYVJfUWVyOVFyHkSp/r+b1+krwE+1Fp1IrSjKlxMKW0kMKSPkT/wQ==
+
 js-tokens@^4.0.0:
   version "4.0.0"
   resolved "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz#19203fb59991df98e3a287050d4647cdeaf32499"

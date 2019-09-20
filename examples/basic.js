@@ -1,5 +1,5 @@
 import { render } from "../dist/render.js";
-import { createVNode } from "@opennetwork/vnode";
+import { createVNode, Fragment } from "@opennetwork/vnode";
 import JSDOM from "jsdom";
 
 const context = {};
@@ -30,7 +30,16 @@ const node = createVNode(
 
 const dom = new JSDOM.JSDOM();
 
-render(node, dom.window.document.body)
+render(
+  createVNode(
+    context,
+    "div",
+    {},
+    "test",
+    "test"
+  ),
+  dom.window.document.body
+)
   .then(() => {
     console.log("Complete");
     console.log(dom.window.document.body.outerHTML);

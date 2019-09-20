@@ -30,7 +30,6 @@ class Merger<SourceValue> {
   private readonly producerTargets = new Map<Producer<SourceValue>, ProducedTarget<SourceValue>>();
   private readonly producerIterables = new Map<Producer<SourceValue>, AsyncIterable<Produced<SourceValue>>>();
 
-  private readonly placeholderIterators = new Set<AsyncIterator<unknown>>();
 
   constructor(toMerge: Merge<SourceValue>) {
     this.producersIterator = toMerge[Symbol.asyncIterator]();
@@ -50,33 +49,28 @@ class Merger<SourceValue> {
     this.producerTargets.clear();
     // TODO close these iterables
     this.producerIterables.clear();
-    await Promise.all([
-      Promise.resolve(iterator && iterator.return ? iterator.return() : undefined).catch(() => {}),
-      asyncExtendedIterable(this.placeholderIterators.values())
-        .forEach(async iterator => {
-          try {
-            if (iterator && iterator.return) {
-              await iterator.return();
-            }
-          } catch (forgottenError) {
+    if (iterator && iterator.return) {
+      try {
+        await iterator.return();
+      } catch (forgottenError) {
 
-          }
-        })
-    ]);
-    this.placeholderIterators.clear();
+      }
+    }
   }
 
   async *cycle(): Producer<SourceValue> {
     do {
+      console.log(this);
       await this.nextStep();
-      if (!this.isPending()) {
-        await this.close();
-      }
       // Output anything new
       while (this.newLayers.length) {
         yield this.newLayers.shift();
       }
     } while (this.isPending());
+
+    if (!this.isPending()) {
+      await this.close();
+    }
 
     // This is for when we never produced a value
     if (this.producers.size === 0) {
@@ -99,8 +93,12 @@ class Merger<SourceValue> {
   }
 
   async nextStep() {
-    const [left, right] = await this.getNext();
-    console.log({ left, right });
+    const nextPromise = this.getNext();
+    if (!nextPromise) {
+      return;
+    }
+
+    const [left, right] = await nextPromise;
 
     if (left) {
       await this.nextProducer(left);
@@ -122,12 +120,18 @@ class Merger<SourceValue> {
         .map(promise => promise.then((result): LeftRight<SourceValue> => [undefined, result]))
     );
 
+    console.log(producerPromises.length);
+
     if (!this.nextProducerPromise) {
-      return racedProducerPromise;
+      return producerPromises.length ? racedProducerPromise : undefined;
     }
 
     const nextProducerPromise: Promise<LeftRight<SourceValue>> = this.nextProducerPromise
       .then((result): LeftRight<SourceValue> => [result, undefined]);
+
+    if (!producerPromises.length) {
+      return nextProducerPromise;
+    }
 
     return Promise.race([
       racedProducerPromise,
@@ -150,6 +154,7 @@ class Merger<SourceValue> {
     if (result.done) {
       target.close();
       this.producersClosed.add(producer);
+      this.producerPromises.delete(producer);
       return;
     }
 
@@ -178,7 +183,7 @@ class Merger<SourceValue> {
       return target;
     }
     target = source();
-    this.addPlaceholderIterator(target);
+    target.hold();
     this.producerIterables.set(target, asyncExtendedIterable(target).retain());
     this.producerTargets.set(producer, target);
     return target;
@@ -201,10 +206,6 @@ class Merger<SourceValue> {
         }
       )
       .toArray();
-  }
-
-  addPlaceholderIterator<T>(source: AsyncIterable<T>) {
-    this.placeholderIterators.add(source[Symbol.asyncIterator]());
   }
 
 }

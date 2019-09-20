@@ -8,29 +8,47 @@ import { merge } from "./merge";
 
 export async function *produce(vnode: AsyncIterable<VNode>): AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>> {
   for await (const node of vnode) {
-    console.log({ node }, isNativeCompatible(node), isDOMNativeVNode(node));
-    if (isNativeCompatible(node)) {
-      yield* produce(native(undefined, node));
-    } else if (!isDOMNativeVNode(node)) {
-      yield* produceChildren(node);
-    } else {
+    if (isDOMNativeVNode(node)) {
       yield asyncIterable([
         getHydratedDOMNativeVNode({
           ...node,
-          children: produceChildren(node)
+          children: asyncExtendedIterable(produceChildren(node)).retain()
         })
       ]);
+    } else if (isNativeCompatible(node)) {
+      yield* produce(native(undefined, node));
+    } else {
+      yield* produceChildren(node);
     }
-    console.log("Yielded", { node });
   }
+}
+
+async function serialise(node: VNode): Promise<object> {
+  return {
+    ...node,
+    children: await asyncExtendedIterable(node.children)
+      .map(value => asyncExtendedIterable(value).map(serialise).toArray())
+      .toArray()
+  };
+}
+
+async function toString(node: VNode): Promise<string> {
+  return JSON.stringify(await serialise(node));
 }
 
 async function *produceChildren(node: VNode): AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>> {
   for await (const children of node.children) {
-    yield* merge<HydratedDOMNativeVNode>(asyncExtendedIterable(children).map(produceChild));
+    console.log(node, { children });
+    yield* asyncExtendedIterable(
+      merge<HydratedDOMNativeVNode>(
+        asyncExtendedIterable(children).map(produceChild).retain()
+      )
+    )
+      .retain();
   }
 
   function produceChild(child: VNode): AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>> {
     return produce(asyncIterable([child]));
   }
 }
+
