@@ -1,23 +1,23 @@
-import { VNode } from "@opennetwork/vnode";
+import { Fragment, VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
-import { asyncExtendedIterable, asyncIterable } from "iterable";
+import { asyncExtendedIterable, asyncIterable, AsyncIterableLike } from "iterable";
 import { DOMNativeVNode, HydratedDOMNativeVNode } from "./native";
-import { getListAsyncIterable, ListAsyncIterable } from "./branded-iterables";
+import { ListAsyncIterable } from "./branded-iterables";
 
 export type DOMRoot = Node & ParentNode;
 
-export async function render(vnode: AsyncIterable<VNode>, root: DOMRoot, atIndex: number = 0): Promise<void> {
-  for await (const nodes of produce(vnode)) {
+export async function render(vnode: AsyncIterableLike<VNode>, root: DOMRoot, atIndex: number = 0): Promise<void> {
+  for await (const nodes of produce(asyncIterable(vnode))) {
     await replaceChildren(root, nodes, atIndex);
   }
 }
 
-function isText(node: Node): node is Text {
-  return node.nodeType === node.TEXT_NODE;
+function isText(node?: Node): node is Text {
+  return !!node && typeof node.nodeType === "number" && node.nodeType === node.TEXT_NODE;
 }
 
-function isElement(node: Node): node is Element {
-  return node.nodeType === node.ELEMENT_NODE;
+function isElement(node?: Node): node is Element {
+  return !!node && typeof node.nodeType === "number" && node.nodeType === node.ELEMENT_NODE;
 }
 
 async function replaceChild(documentNode: DOMRoot, child: HydratedDOMNativeVNode, atIndex: number): Promise<Element | Text> {
@@ -56,7 +56,6 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): boo
   if (expected.options.type !== "Element") {
     throw new Error(`Expected Element or Text, received ${expected.options.type}`);
   }
-  // Maybe I just need to check for ELEMENT_NODE, but lib.dom.d.ts comments that all the below refer to an element node
   if (!isElement(given)) {
     return false;
   }
@@ -82,6 +81,7 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
 
   // A promise that will never resolve
   const deadPromise: Promise<void> = new Promise(() => {});
+
   const childPromises: Promise<void>[] = [];
 
   // We only want our childErrorPromise to throw, never resolve
@@ -102,6 +102,7 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
     documentNode.removeChild(documentNode.lastChild);
   }
 
+  // TODO settle all, collect errors
   await Promise.all(childPromises);
 
   async function nextChild(child: HydratedDOMNativeVNode) {
@@ -126,15 +127,26 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
   }
 
   async function replaceChildrenForNode(parent: HydratedDOMNativeVNode, documentNode: Element) {
-    for await (const update of asyncIterable(parent.children)) {
-      await replaceChildren(documentNode, getListAsyncIterable(update), 0);
-    }
+    await render(
+      [
+        {
+          reference: Fragment,
+          children: parent.children
+        }
+      ],
+      documentNode,
+      0
+    );
   }
 
 
   function addChildPromise(promise: Promise<void>) {
+    promise.then(remove, remove);
     childPromises.push(promise);
     setupChildErrorPromise();
+    function remove() {
+      removeChildPromise(promise);
+    }
   }
 
   function removeChildPromise(promise: Promise<void>) {
@@ -154,15 +166,20 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
 
 async function getDocumentNode(root: DOMRoot, node: DOMNativeVNode): Promise<Text | Element> {
   if (node.options.type === "Text") {
+    if (isText(node.options.instance)) {
+      return node.options.instance;
+    }
     return root.ownerDocument.createTextNode(node.source);
   }
   if (node.options.type !== "Element") {
     throw new Error("type must be Text or Element");
   }
+  if (isElement(node.options.instance)) {
+    return node.options.instance;
+  }
   if (node.options.whenDefined && root.ownerDocument.defaultView.customElements && root.ownerDocument.defaultView.customElements.whenDefined) {
     await root.ownerDocument.defaultView.customElements.whenDefined(node.source);
   }
-
   if (node.options.namespace) {
     return root.ownerDocument.createElementNS(node.options.namespace, node.source, { is: node.options.is });
   } else {

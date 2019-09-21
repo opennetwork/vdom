@@ -16,6 +16,7 @@ export interface DOMNativeVNode extends NativeVNode {
     namespace?: string;
     whenDefined?: boolean;
     is?: string;
+    instance?: Element | Text;
   };
 }
 
