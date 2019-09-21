@@ -1,13 +1,12 @@
 import {
   asyncExtendedIterable,
   asyncIterable,
-  AsyncIterableLike, asyncUnion, asyncView,
-  extendedIterable, getNext, isAsyncIterable,
-  source,
-  TransientAsyncIteratorSource
+  extendedIterable,
+  source
 } from "iterable";
 import {
-  getListAsyncIterable, getListUpdaterAsyncIterable,
+  getListAsyncIterable,
+  getListUpdaterAsyncIterable,
   ListAsyncIterable,
   ListUpdaterAsyncIterable
 } from "./branded-iterables";
@@ -18,8 +17,6 @@ type Merge<SourceValue> = AsyncIterable<Producer<SourceValue>>;
 
 type ProducedResult<SourceValue> = IteratorResult<Produced<SourceValue>>;
 type ProducerResult<SourceValue> = IteratorResult<Producer<SourceValue>>;
-
-type LayerTarget<SourceValue> = ListAsyncIterable<Produced<SourceValue>, TransientAsyncIteratorSource<Produced<SourceValue>>>;
 
 type ProducedResultPromiseValue<SourceValue> = [Producer<SourceValue>, ProducedResult<SourceValue>];
 type ProducedResultPromise<SourceValue> = Promise<ProducedResultPromiseValue<SourceValue>>;
@@ -37,12 +34,9 @@ export class Merger<SourceValue> {
   private readonly producersClosed = new Set<Producer<SourceValue>>();
   private readonly producersUsed = new Set<Producer<SourceValue>>();
   private readonly producerPromises = new Map<Producer<SourceValue>, ProducedResultPromise<SourceValue>>();
+  private readonly producerValues = new Map<Producer<SourceValue>, Produced<SourceValue>>();
 
   private readonly newLayers: Produced<SourceValue>[] = [];
-  private readonly layers: Produced<SourceValue>[] = [];
-  private readonly layerProducers = new WeakMap<Produced<SourceValue>, Set<Producer<SourceValue>>>();
-  private readonly layerTargets = new Map<Produced<SourceValue>, LayerTarget<SourceValue>>();
-  private readonly layerViews = new WeakMap<Produced<SourceValue>, AsyncIterable<SourceValue>>();
 
   private nextStepPromise: Promise<void>;
 
@@ -55,11 +49,6 @@ export class Merger<SourceValue> {
   async close() {
     const iterator = this.producersIterator;
     this.producersIterator = undefined;
-
-    extendedIterable(this.layerTargets.values()).forEach(
-      value => value.close()
-    );
-    this.layerTargets.clear();
 
     this.producers.clear();
     this.producersClosed.clear();
@@ -74,7 +63,6 @@ export class Merger<SourceValue> {
 
     // Kill any and all layers
     this.newLayers.splice(0, this.newLayers.length);
-    this.layers.splice(0, this.layers.length);
 
     if (iterator && iterator.return) {
       try {
@@ -198,134 +186,36 @@ export class Merger<SourceValue> {
 
   async nextProduced([producer, result]: ProducedResultPromiseValue<SourceValue>): Promise<void> {
     this.producerPromises.set(producer, undefined);
+
     if (result.done) {
       this.producersClosed.add(producer);
       this.producerPromises.delete(producer);
       return;
     }
 
-    const targets = await this.getLayerTargets(producer);
+    const nextValue = getListAsyncIterable(asyncExtendedIterable<SourceValue>(result.value).retain());
+    this.producerValues.set(producer, nextValue);
+    await this.getNewLayer();
 
-    targets.forEach(([layer, target]) => {
-      this.layerProducers.get(layer).add(producer);
-      target.push(getListAsyncIterable<SourceValue>(asyncExtendedIterable<SourceValue>(result.value).retain()));
-    });
-
-    // Lets forget about these layers, as we're moving onto the big leagues
-    if (targets.length !== this.layers.length) {
-      this.layers.splice(0, this.layers.length - targets.length);
-    }
   }
 
-  async getLayerTargets(producer: Producer<SourceValue>): Promise<[Produced<SourceValue>, LayerTarget<SourceValue>][]> {
-    const producerArray = extendedIterable(this.producers.keys()).toArray();
-    const producerIndex = getProducerIndex(producer);
+  async getNewLayer() {
+    const producers = Array.from(this.producers.keys());
 
-    const compatibleLayers = this.layers
-      .filter(layer => {
-        const set = this.layerProducers.get(layer);
+    const nextLayer = getListAsyncIterable(
+      asyncExtendedIterable(producers)
+        .filter(producer => this.producerValues.has(producer))
+        .flatMap(producer => this.producerValues.get(producer))
+    );
 
-        if (set.has(producer)) {
-          // If we already have this value in our layer, we don't want it
-          // This will go into a new layer
-          return false;
-        }
-
-        const maxIndex = Math.max(...extendedIterable(set.values()).map(getProducerIndex).toArray());
-
-        if (maxIndex > producerIndex) {
-          // If we have a producer that is later in our producers list, then we don't want to insert into it,
-          // and instead this will go into a new layer
-          return false;
-        }
-
-        // We aren't included, and we can freely append to the end of the layer
-        return true;
-      })
-      .map((layer): [Produced<SourceValue>, LayerTarget<SourceValue>] => [layer, this.layerTargets.get(layer)]);
-
-    if (compatibleLayers.length === 0) {
-      return [await this.getNewLayer()];
-    }
-
-    return compatibleLayers;
-
-    function getProducerIndex(producer: Producer<SourceValue>): number {
-      return producerArray.indexOf(producer);
-    }
-  }
-
-  async getNewLayer(): Promise<[Produced<SourceValue>, LayerTarget<SourceValue>]> {
-    let previousLayer: AsyncIterable<SourceValue> = asyncIterable([]);
-
-    if (this.layers.length) {
-      const previousIndex = this.layers.length - 1;
-      previousLayer = this.layerViews.get(this.layers[previousIndex]);
-      if (!isAsyncIterable(previousLayer)) {
-        throw new Error("Expected to find view for previous layer");
-      }
-      // Can no longer be used
-      this.layerViews.delete(this.layers[previousIndex]);
-    }
-
-    const next = async (): Promise<Produced<SourceValue>> => {
-      if (!this.isPending()) {
-        target.close();
-        return undefined;
-      }
-      await this.nextStep();
-      return next();
-    };
-
-    const target = getListAsyncIterable<Produced<SourceValue>, TransientAsyncIteratorSource<Produced<SourceValue>>>(source(next));
-
-    // Grab the iterable straight away, this will ensure we will always have _all_ the values for it
-    const targetIterable = target[Symbol.asyncIterator]();
-
-    const layerIterableBase = asyncExtendedIterable(previousLayer)
-      .union(
-        asyncExtendedIterable(
-          (
-            async function *iterate() {
-              let next;
-              do {
-                next = await targetIterable.next();
-                if (!next.done) {
-                  yield next.value;
-                }
-              } while (!next.done);
-            }
-          )()
-        )
-          .flatMap((value: Produced<SourceValue>) => value)
-      )
-      .retain();
-
-    const view = asyncExtendedIterable<AsyncIterable<SourceValue>>(asyncView<SourceValue>(layerIterableBase)).take(2);
-    const viewIterable = view[Symbol.asyncIterator]();
-    const left: IteratorResult<AsyncIterable<SourceValue>, AsyncIterable<SourceValue>> = await viewIterable.next();
-    const right: IteratorResult<AsyncIterable<SourceValue>, AsyncIterable<SourceValue>> = await viewIterable.next();
-
-    if (!(isAsyncIterable(left.value) && isAsyncIterable(right.value))) {
-      throw new Error("Expected to be able to create a view for our layer, but couldn't");
-    }
-
-    const layerIterable = getListAsyncIterable(layerIterableBase);
-
-    this.layers.push(layerIterable);
-    this.newLayers.push(layerIterable);
-    this.layerProducers.set(layerIterable, new Set());
-    this.layerTargets.set(layerIterable, target);
-    this.layerViews.set(layerIterable, right.value);
-
-    return [layerIterable, target];
+    this.newLayers.push(nextLayer);
   }
 
   getProducerPromises(): ProducedResultPromise<SourceValue>[] {
-    return extendedIterable(this.producers.keys())
+    return Array.from(this.producers.keys())
       .filter(producer => !this.producersClosed.has(producer) && !!this.producers.get(producer))
       .map(
-        producer => {
+        (producer: Producer<SourceValue>): ProducedResultPromise<SourceValue> => {
           const currentPromise = this.producerPromises.get(producer);
           if (currentPromise) {
             return currentPromise;
@@ -336,8 +226,7 @@ export class Merger<SourceValue> {
           this.producerPromises.set(producer, nextPromise);
           return nextPromise;
         }
-      )
-      .toArray();
+      );
   }
 
 }

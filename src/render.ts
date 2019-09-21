@@ -1,4 +1,4 @@
-import { children, VNode } from "@opennetwork/vnode";
+import { VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
 import { asyncExtendedIterable, asyncIterable } from "iterable";
 import { DOMNativeVNode, HydratedDOMNativeVNode } from "./native";
@@ -17,8 +17,7 @@ function isText(node: Node): node is Text {
 }
 
 function isElement(node: Node): node is Element {
-  // Maybe I just need to check for ELEMENT_NODE, but lib.dom.d.ts comments that all the below refer to an element node
-  return [node.ELEMENT_NODE, node.ENTITY_NODE, node.ENTITY_REFERENCE_NODE, node.NOTATION_NODE].includes(node.nodeType);
+  return node.nodeType === node.ELEMENT_NODE;
 }
 
 async function replaceChild(documentNode: DOMRoot, child: HydratedDOMNativeVNode, atIndex: number): Promise<Element | Text> {

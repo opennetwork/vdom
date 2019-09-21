@@ -4,20 +4,20 @@ import { asyncIterable, asyncExtendedIterable } from "iterable";
 async function run() {
   const source = asyncIterable([
     asyncIterable([
-      asyncExtendedIterable([
+      asyncIterable([
         "1"
       ]),
-      asyncExtendedIterable([
+      asyncIterable([
         "2",
         "3"
       ])
     ]),
     asyncIterable([
-      asyncExtendedIterable([
+      asyncIterable([
         "4",
         "5"
       ]),
-      asyncExtendedIterable([
+      asyncIterable([
         "6",
         "7"
       ])

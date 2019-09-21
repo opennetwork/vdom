@@ -17,7 +17,8 @@ const node = createVNode(
         context,
         async function *() {
           console.log("Start 1");
-          yield createVNode(context, "button", {}, "hello", "hello", "hello");
+          yield createVNode(context, "button", { reference: "a" }, "hello", "hello", "hello");
+          yield createVNode(context, "button", { reference: "b" }, "hello", "hello");
           console.log("End 1");
         },
         {}

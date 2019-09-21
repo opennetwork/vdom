@@ -1,14 +1,12 @@
 import {
-  Fragment,
-  FragmentVNode,
-  isFragmentVNode, isNativeVNode,
+  isFragmentVNode,
+  isNativeVNode,
   isScalarVNode,
   isSourceReference,
   NativeVNode,
   VNode
 } from "@opennetwork/vnode";
-import { asyncExtendedIterable, asyncIterable } from "iterable";
-import { merge } from "./merge";
+import { asyncExtendedIterable } from "iterable";
 import { ListAsyncIterable, ListUpdaterAsyncIterable } from "./branded-iterables";
 
 export interface DOMNativeVNode extends NativeVNode {
@@ -120,7 +118,7 @@ export async function *native(options: unknown, children: VNode): AsyncIterable<
   } else {
     yield {
       source: String(children.source),
-      reference: Symbol("DOM Native"),
+      reference: children.reference || Symbol("DOM Native"),
       native: true,
       options: nativeOptions,
       // We're going to git these children a few times, so we want to retain our values

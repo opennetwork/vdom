@@ -1,5 +1,11 @@
 import { VNode } from "@opennetwork/vnode/src/vnode";
-import { getHydratedDOMNativeVNode, HydratedDOMNativeVNode, isDOMNativeVNode, isNativeCompatible, native } from "./native";
+import {
+  getHydratedDOMNativeVNode,
+  HydratedDOMNativeVNode,
+  isDOMNativeVNode,
+  isNativeCompatible,
+  native
+} from "./native";
 import {
   asyncExtendedIterable,
   asyncIterable
