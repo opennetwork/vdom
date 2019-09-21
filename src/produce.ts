@@ -5,20 +5,29 @@ import {
   asyncIterable
 } from "iterable";
 import { merge } from "./merge";
+import {
+  getListAsyncIterable,
+  getListUpdaterAsyncIterable,
+  ListAsyncIterable,
+  ListUpdaterAsyncIterable
+} from "./branded-iterables";
 
-export async function *produce(vnode: AsyncIterable<VNode>): AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>> {
-  for await (const node of vnode) {
-    if (isDOMNativeVNode(node)) {
-      yield asyncIterable([
-        getHydratedDOMNativeVNode({
+export function produce(vnode: AsyncIterable<VNode>): ListUpdaterAsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
+  return getListUpdaterAsyncIterable(produceGenerator(vnode));
+
+  async function *produceGenerator(vnode: AsyncIterable<VNode>): AsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
+    for await (const node of vnode) {
+      if (isDOMNativeVNode(node)) {
+        const hydrated = getHydratedDOMNativeVNode({
           ...node,
-          children: asyncExtendedIterable(produceChildren(node)).retain()
-        })
-      ]);
-    } else if (isNativeCompatible(node)) {
-      yield* produce(native(undefined, node));
-    } else {
-      yield* produceChildren(node);
+          children: produceChildren(node)
+        });
+        yield getListAsyncIterable(asyncIterable([hydrated]));
+      } else if (isNativeCompatible(node)) {
+        yield* produce(native(undefined, node));
+      } else {
+        yield* produceChildren(node);
+      }
     }
   }
 }
@@ -36,18 +45,19 @@ async function toString(node: VNode): Promise<string> {
   return JSON.stringify(await serialise(node));
 }
 
-async function *produceChildren(node: VNode): AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>> {
-  for await (const children of node.children) {
-    console.log(node, { children });
-    yield* asyncExtendedIterable(
-      merge<HydratedDOMNativeVNode>(
-        asyncExtendedIterable(children).map(produceChild).retain()
-      )
-    )
-      .retain();
+function produceChildren(node: VNode): ListUpdaterAsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
+
+  return getListUpdaterAsyncIterable(produceChildrenGenerator(node));
+
+  async function *produceChildrenGenerator(node: VNode): AsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
+    for await (const children of node.children) {
+      yield* merge<HydratedDOMNativeVNode>(
+        asyncExtendedIterable(children).map(produceChild)
+      );
+    }
   }
 
-  function produceChild(child: VNode): AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>> {
+  function produceChild(child: VNode): ListUpdaterAsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
     return produce(asyncIterable([child]));
   }
 }

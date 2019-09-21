@@ -18,10 +18,10 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
-"@opennetwork/vnode@^12.1.0":
-  version "12.1.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-12.1.0.tgz#54eec05e1780f2369ba550e2a7dfcc5502e5c04d"
-  integrity sha512-h0jzSYaqtj/ssf64RswwfmxSMnP27ll4VR6lTh6oJGjYE3OA0bvuXpaus1xgsA9niBQjK+j4wmcx0oTHBoDS3A==
+"@opennetwork/vnode@^12.2.0":
+  version "12.2.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-12.2.0.tgz#501629587e8b81a8c45ea2bd9e9e56b979e3e272"
+  integrity sha512-FA7nhkD4F/BYxoF/Vn+28vF4sh+v+dENfIoE2Mt9h1mUQFWfR/plk1rd7fzRWe2PDde18iMbgjVDnQi5Brtnlw==
   dependencies:
     iterable "^5.2.2"
 
@@ -484,10 +484,10 @@ iterable@^5.2.2:
   resolved "https://registry.npmjs.org/iterable/-/iterable-5.2.2.tgz#6f38e7f509193cc611eb6b968059ba197d84ad2e"
   integrity sha512-QsXb9q65zwEtJMI0YWPdQYg9pwjW0v1o5eoLm1kdmUQNENz0l4q6o3ZCG8TrOxv0F9eKmDYx2/nvI8TrvNYCHg==
 
-iterable@^5.4.0:
-  version "5.4.0"
-  resolved "https://registry.npmjs.org/iterable/-/iterable-5.4.0.tgz#380d058ad76a90058e6845b925d907f229d5f768"
-  integrity sha512-c9VDVCSZAtc9b4fEC9O5B/CllthoApOIzKYVJfUWVyOVFyHkSp/r+b1+krwE+1Fp1IrSjKlxMKW0kMKSPkT/wQ==
+iterable@^5.6.0:
+  version "5.6.0"
+  resolved "https://registry.npmjs.org/iterable/-/iterable-5.6.0.tgz#80aa402abaa29938ee267e559359b063d7ef2c00"
+  integrity sha512-whfeKvr+YUAI3oZsJpfTfTSGJpNT8xEvaj8o6tE2kT71fP5+gplNu6baVnUPiWcc1OYNc0ORG23B5lAt1PXNxw==
 
 js-tokens@^4.0.0:
   version "4.0.0"

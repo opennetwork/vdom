@@ -14,8 +14,8 @@
   },
   "peerDependencies": {},
   "dependencies": {
-    "@opennetwork/vnode": "^12.1.0",
-    "iterable": "^5.4.0"
+    "@opennetwork/vnode": "^12.2.0",
+    "iterable": "^5.6.0"
   },
   "repository": {
     "type": "git",

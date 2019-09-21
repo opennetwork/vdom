@@ -1,52 +1,74 @@
 import { children, VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
-import { asyncExtendedIterable } from "iterable";
+import { asyncExtendedIterable, asyncIterable } from "iterable";
 import { DOMNativeVNode, HydratedDOMNativeVNode } from "./native";
+import { getListAsyncIterable, ListAsyncIterable } from "./branded-iterables";
 
 export type DOMRoot = Node & ParentNode;
-export type DOMSourceValue = Text | Element;
-export type DOMProduced = AsyncIterable<DOMSourceValue>;
 
-function isText(node: DOMSourceValue): node is Text {
+export async function render(vnode: AsyncIterable<VNode>, root: DOMRoot, atIndex: number = 0): Promise<void> {
+  for await (const nodes of produce(vnode)) {
+    await replaceChildren(root, nodes, atIndex);
+  }
+}
+
+function isText(node: Node): node is Text {
   return node.nodeType === node.TEXT_NODE;
 }
 
-export async function render(vnode: AsyncIterable<VNode>, root: DOMRoot, atIndex: number = 0): Promise<void> {
-  const production = asyncExtendedIterable(produce(vnode)).map(nodes => {
-    return asyncExtendedIterable(nodes)
-      .flatMap(node => map(root, node));
-  });
-  for await (const nodes of production) {
-    console.log("BEFORE", root.ownerDocument.body.outerHTML, { nodes });
-    await replaceChildren(root, nodes, atIndex);
-    console.log("AFTER", root.ownerDocument.body.outerHTML);
-  }
-  console.log("Finished", production);
+function isElement(node: Node): node is Element {
+  // Maybe I just need to check for ELEMENT_NODE, but lib.dom.d.ts comments that all the below refer to an element node
+  return [node.ELEMENT_NODE, node.ENTITY_NODE, node.ENTITY_REFERENCE_NODE, node.NOTATION_NODE].includes(node.nodeType);
 }
 
-async function *map(root: DOMRoot, node: HydratedDOMNativeVNode) {
-  const documentNode = await getDocumentNode(root, node);
-
-  if (isText(documentNode)) {
-    return yield documentNode;
-  }
-
-  for await (const children of asyncExtendedIterable(node.children)) {
-    for await (const transformed of asyncExtendedIterable(children).map(node => map(root, node))) {
-      await replaceChildren(
-        documentNode,
-        transformed,
-        0
-      );
-      yield documentNode;
+async function replaceChild(documentNode: DOMRoot, child: HydratedDOMNativeVNode, atIndex: number): Promise<Element | Text> {
+  const length = documentNode.childNodes.length;
+  // We're replacing
+  if (length > atIndex) {
+    const currentNode = documentNode.childNodes.item(atIndex);
+    if (!currentNode) {
+      throw new Error(`Expected child at index ${atIndex}`);
     }
+    // Already there, so no need to update, we will replace the children next
+    if (isElement(currentNode) && isExpectedNode(child, currentNode)) {
+      return currentNode;
+    }
+    const childDocumentNode = await getDocumentNode(documentNode, child);
+    documentNode.replaceChild(
+      childDocumentNode,
+      currentNode
+    );
+    return childDocumentNode;
+  } else {
+    // We're appending
+    const childDocumentNode = await getDocumentNode(documentNode, child);
+    documentNode.appendChild(childDocumentNode);
+    return childDocumentNode;
   }
-
-  yield documentNode;
-
 }
 
-export async function replaceChildren(documentNode: DOMRoot, nextChildren: DOMProduced, atIndex: number = 0): Promise<void> {
+function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): boolean {
+  if (!given) {
+    return false;
+  }
+  if (expected.options.type === "Text") {
+    return isText(given);
+  }
+  if (expected.options.type !== "Element") {
+    throw new Error(`Expected Element or Text, received ${expected.options.type}`);
+  }
+  // Maybe I just need to check for ELEMENT_NODE, but lib.dom.d.ts comments that all the below refer to an element node
+  if (!isElement(given)) {
+    return false;
+  }
+  // TODO find out if this value is mutated at all when used, which would result in a different value to check for
+  if (expected.options.namespace && given.namespaceURI !== expected.options.namespace) {
+    return false;
+  }
+  return expected.source === given.localName;
+}
+
+async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIterable<HydratedDOMNativeVNode>, atIndex: number = 0): Promise<void> {
 
   if (atIndex < 0) {
     throw new Error("Expected index to be equal to or above 0");
@@ -59,59 +81,75 @@ export async function replaceChildren(documentNode: DOMRoot, nextChildren: DOMPr
     }
   }
 
-  const previousChildNodes: DOMSourceValue[] = [];
+  // A promise that will never resolve
+  const deadPromise: Promise<void> = new Promise(() => {});
+  const childPromises: Promise<void>[] = [];
+
+  // We only want our childErrorPromise to throw, never resolve
+  let childErrorPromise: Promise<void> = deadPromise;
+
+  const previousChildNodes: HydratedDOMNativeVNode[] = [];
   const nextChildNodes = await asyncExtendedIterable(nextChildren)
-    .tap(node => {
-      console.log("CHILD", { node });
-
-      const currentExpectedChildNodes = previousChildNodes.slice();
-
-      previousChildNodes.push(node);
-
-      const previousIndex = currentExpectedChildNodes.length - 1;
-
-      if (currentExpectedChildNodes[0]) {
-        const previousIndex = currentExpectedChildNodes.length - 1;
-        const previousExpectedNode = currentExpectedChildNodes[previousIndex];
-        const previousFoundNode = documentNode.childNodes.item(previousIndex + atIndex);
-        if (previousExpectedNode !== previousFoundNode) {
-          throw new Error("DOM has been tampered with during the render cycle!");
-        }
-      }
-
-      const currentIndex = previousIndex + 1;
-      // We must check every time where we are at
-      const length = documentNode.childNodes.length;
-
-      // We're replacing
-      if (length > currentIndex) {
-        const currentNode = documentNode.childNodes.item(currentIndex + atIndex);
-        if (currentNode === node) {
-          console.log({ currentNode, node });
-          // Already there, so no need to update
-          return;
-        }
-        if (currentNode) {
-          documentNode.replaceChild(
-            node,
-            currentNode
-          );
-        } else {
-          throw new Error(`Expected child at index ${currentIndex + atIndex}`);
-        }
-      } else {
-        // We're appending
-        documentNode.appendChild(node);
-      }
-
-      console.log("Added", documentNode.ownerDocument.body.outerHTML);
+    .filter(node => !!node)
+    .tap(async child => {
+      await Promise.race([
+        nextChild(child),
+        childErrorPromise
+      ]);
     })
     .toArray();
 
-  console.log({ nextChildNodes });
-
   while (documentNode.childNodes.length > nextChildNodes.length) {
     documentNode.removeChild(documentNode.lastChild);
+  }
+
+  await Promise.all(childPromises);
+
+  async function nextChild(child: HydratedDOMNativeVNode) {
+    const currentExpectedChildNodes = previousChildNodes.slice();
+    previousChildNodes.push(child);
+    const previousIndex = currentExpectedChildNodes.length - 1;
+
+    if (currentExpectedChildNodes[0]) {
+      const previousIndex = currentExpectedChildNodes.length - 1;
+      const previousExpectedNode = currentExpectedChildNodes[previousIndex];
+      const previousFoundNode = documentNode.childNodes.item(previousIndex + atIndex);
+      if (!isExpectedNode(previousExpectedNode, previousFoundNode)) {
+        throw new Error("DOM has been tampered with during the render cycle!");
+      }
+    }
+    const node = await replaceChild(documentNode, child, previousIndex + 1 + atIndex);
+
+    if (isElement(node)) {
+      const promise = replaceChildrenForNode(child, node);
+      addChildPromise(promise);
+    }
+  }
+
+  async function replaceChildrenForNode(parent: HydratedDOMNativeVNode, documentNode: Element) {
+    for await (const update of asyncIterable(parent.children)) {
+      await replaceChildren(documentNode, getListAsyncIterable(update), 0);
+    }
+  }
+
+
+  function addChildPromise(promise: Promise<void>) {
+    childPromises.push(promise);
+    setupChildErrorPromise();
+  }
+
+  function removeChildPromise(promise: Promise<void>) {
+    const index = childPromises.indexOf(promise);
+    if (index > -1) {
+      childPromises.splice(index, 1);
+      setupChildErrorPromise();
+    }
+  }
+
+  function setupChildErrorPromise() {
+    // This can only throw when there is an issue
+    childErrorPromise = Promise.all(childPromises)
+      .then(() => deadPromise);
   }
 }
 
