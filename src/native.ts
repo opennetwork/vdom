@@ -8,15 +8,22 @@ import {
 } from "@opennetwork/vnode";
 import { asyncExtendedIterable } from "iterable";
 import { ListAsyncIterable, ListUpdaterAsyncIterable } from "./branded-iterables";
+import { EXPERIMENT_onAttached, EXPERIMENT_attributeMode, EXPERIMENT_attributes } from "./experiments";
 
-export interface DOMNativeVNode extends NativeVNode {
+export type DOMNativeVNodeType = "Element" | "Text";
+export type DOMNativeVNodeInstance = Element | Text;
+
+export interface DOMNativeVNode<Type extends DOMNativeVNodeType = DOMNativeVNodeType, Instance extends DOMNativeVNodeInstance = DOMNativeVNodeInstance> extends NativeVNode {
   source: string;
   options: {
-    type: "Element" | "Text",
+    type: DOMNativeVNodeType,
     namespace?: string;
     whenDefined?: boolean;
     is?: string;
-    instance?: Element | Text;
+    instance?: DOMNativeVNodeInstance;
+    [EXPERIMENT_onAttached]?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+    [EXPERIMENT_attributeMode]?: "set" | "remove" | "exact";
+    [EXPERIMENT_attributes]?: Record<string, string> | string[];
   };
 }
 
@@ -105,6 +112,7 @@ function getNativeOptions(vnode: VNode): DOMNativeVNode["options"] {
   }
 
   return {
+    ...vnode.options,
     type: "Element",
     whenDefined: isWhenDefined(vnode.options),
     is: isIsOptions(vnode.options) ? vnode.options.is : undefined,
