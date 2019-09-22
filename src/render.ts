@@ -1,11 +1,14 @@
 import { Fragment, VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
 import { asyncExtendedIterable, asyncIterable, AsyncIterableLike, isPromise } from "iterable";
-import { DOMNativeVNode, HydratedDOMNativeVNode } from "./native";
+import { DOMNativeVNode, HydratedDOMNativeVNode, DOMRoot } from "./native";
 import { ListAsyncIterable } from "./branded-iterables";
-import { EXPERIMENT_attributeMode, EXPERIMENT_attributes, EXPERIMENT_onAttached } from "./experiments";
-
-export type DOMRoot = Node & ParentNode;
+import {
+  EXPERIMENT_attributeMode,
+  EXPERIMENT_attributes,
+  EXPERIMENT_getDocumentNode,
+  EXPERIMENT_onAttached
+} from "./experiments";
 
 export async function render(vnode: AsyncIterableLike<VNode>, root: DOMRoot, atIndex: number = 0): Promise<void> {
   for await (const nodes of produce(asyncIterable(vnode))) {
@@ -176,7 +179,26 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
   }
 }
 
-async function getDocumentNode(root: DOMRoot, node: DOMNativeVNode): Promise<Text | Element> {
+async function getDocumentNode(root: DOMRoot, node: HydratedDOMNativeVNode): Promise<Text | Element> {
+  if (typeof node.options[EXPERIMENT_getDocumentNode] === "function") {
+    let result = node.options[EXPERIMENT_getDocumentNode](root, node);
+    if (isPromise(result)) {
+      result = await result;
+    }
+    if (result) {
+      if (!isExpectedNode(node, result)) {
+        if (node.options.type === "Text") {
+          throw new Error(`Expected getDocumentNode to return a Text node`);
+        } else if (node.options.type === "Element") {
+          throw new Error(`Expected getDocumentNode to return an Element node with the localName ${node.source}${node.options.namespace ? `, and the namespace ${node.options.namespace}` : ""}, but didn't receive this`);
+        } else {
+          throw new Error(`getDocumentNode returned an unexpected node type, expected ${node.options.type}, but got nodeType ${result.nodeType}, see https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType`);
+
+        }
+      }
+      return result;
+    }
+  }
   if (node.options.type === "Text") {
     if (isText(node.options.instance)) {
       return node.options.instance;

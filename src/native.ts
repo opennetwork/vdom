@@ -8,8 +8,14 @@ import {
 } from "@opennetwork/vnode";
 import { asyncExtendedIterable } from "iterable";
 import { ListAsyncIterable, ListUpdaterAsyncIterable } from "./branded-iterables";
-import { EXPERIMENT_onAttached, EXPERIMENT_attributeMode, EXPERIMENT_attributes } from "./experiments";
+import {
+  EXPERIMENT_onAttached,
+  EXPERIMENT_getDocumentNode,
+  EXPERIMENT_attributeMode,
+  EXPERIMENT_attributes
+} from "./experiments";
 
+export type DOMRoot = Node & ParentNode;
 export type DOMNativeVNodeType = "Element" | "Text";
 export type DOMNativeVNodeInstance = Element | Text;
 
@@ -22,6 +28,7 @@ export interface DOMNativeVNode<Type extends DOMNativeVNodeType = DOMNativeVNode
     is?: string;
     instance?: DOMNativeVNodeInstance;
     [EXPERIMENT_onAttached]?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+    [EXPERIMENT_getDocumentNode]?: (root: DOMRoot, node: DOMNativeVNode<Type, Instance>) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>
     [EXPERIMENT_attributeMode]?: "set" | "remove" | "exact";
     [EXPERIMENT_attributes]?: Record<string, string> | string[];
   };

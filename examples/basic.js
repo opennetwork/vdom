@@ -1,4 +1,4 @@
-import { render, EXPERIMENT_onAttached, EXPERIMENT_attributes } from "../dist/index.js";
+import { render, EXPERIMENT_onAttached, EXPERIMENT_getDocumentNode, EXPERIMENT_attributes } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
 import JSDOM from "jsdom";
 
@@ -12,6 +12,10 @@ const node = createVNode(
       context,
       "div",
       {
+        // We can hold onto our own node if we wanted to, or if we already had one
+        [EXPERIMENT_getDocumentNode]: root => root.ownerDocument.createElement("div"),
+        // This is run after we have have attached to to the DOM, and after we have run any more tasks
+        // like setting attributes, but _before_ children are mounted
         [EXPERIMENT_onAttached]: mounted => console.log("div", { mounted })
       },
       createVNode(context, "button", {}),
