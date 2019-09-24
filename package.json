@@ -12,16 +12,19 @@
     "tslint": "tslint -c tslint.json -p tsconfig.json",
     "prepublishOnly": "npm run build"
   },
-  "peerDependencies": {},
-  "dependencies": {
-    "@opennetwork/vnode": "^12.2.0",
+  "peerDependencies": {
+    "@opennetwork/vnode": "^14.0.0",
     "iterable": "^5.6.0"
+  },
+  "dependencies": {
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/opennetwork/vdom.git"
   },
   "devDependencies": {
+    "@opennetwork/vnode": "^14.0.0",
+    "iterable": "^5.6.0",
     "@types/jsdom": "^12.2.4",
     "esm": "^3.2.25",
     "filehound": "^1.17.3",

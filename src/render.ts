@@ -10,8 +10,8 @@ import {
   EXPERIMENT_onAttached
 } from "./experiments";
 
-export async function render(vnode: AsyncIterableLike<VNode>, root: DOMRoot, atIndex: number = 0): Promise<void> {
-  for await (const nodes of produce(asyncIterable(vnode))) {
+export async function render(vnode: VNode, root: DOMRoot, atIndex: number = 0): Promise<void> {
+  for await (const nodes of produce(vnode)) {
     await replaceChildren(root, nodes, atIndex);
   }
 }
@@ -143,12 +143,10 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
 
   async function replaceChildrenForNode(parent: HydratedDOMNativeVNode, documentNode: Element) {
     await render(
-      [
-        {
-          reference: Fragment,
-          children: parent.children
-        }
-      ],
+      {
+        reference: Fragment,
+        children: parent.children
+      },
       documentNode,
       0
     );

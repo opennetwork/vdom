@@ -18,10 +18,10 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
-"@opennetwork/vnode@^12.2.0":
-  version "12.2.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-12.2.0.tgz#501629587e8b81a8c45ea2bd9e9e56b979e3e272"
-  integrity sha512-FA7nhkD4F/BYxoF/Vn+28vF4sh+v+dENfIoE2Mt9h1mUQFWfR/plk1rd7fzRWe2PDde18iMbgjVDnQi5Brtnlw==
+"@opennetwork/vnode@^14.0.0":
+  version "14.0.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-14.0.0.tgz#f52d3bb305c22306da26f8a4ed5a579b0c23929f"
+  integrity sha512-1HDspJ+qsRIekfnw7sketSHwWHDfH5NIpX59kZ2TmRA4vU3Hv5LjOGUx8QsWNHEn2z1Zi8CXYEpmAyceuy2Lqw==
   dependencies:
     iterable "^5.2.2"
 

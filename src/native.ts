@@ -127,12 +127,12 @@ function getNativeOptions(vnode: VNode): DOMNativeVNode["options"] {
   };
 }
 
-export async function *native(options: unknown, children: VNode): AsyncIterable<VNode> {
+export function native(options: unknown, children: VNode): VNode {
   const nativeOptions = getNativeOptions(children);
   if (!nativeOptions) {
-    yield children;
+    return children;
   } else {
-    yield {
+    return {
       source: String(children.source),
       reference: children.reference || Symbol("DOM Native"),
       native: true,
