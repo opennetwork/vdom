@@ -19,19 +19,21 @@ export type DOMRoot = Node & ParentNode;
 export type DOMNativeVNodeType = "Element" | "Text";
 export type DOMNativeVNodeInstance = Element | Text;
 
+export interface DOMNativeVNodeOptions<Type extends DOMNativeVNodeType = DOMNativeVNodeType, Instance extends DOMNativeVNodeInstance = DOMNativeVNodeInstance> {
+  type: DOMNativeVNodeType;
+  namespace?: string;
+  whenDefined?: boolean;
+  is?: string;
+  instance?: DOMNativeVNodeInstance;
+  [EXPERIMENT_onAttached]?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+  [EXPERIMENT_getDocumentNode]?: (root: DOMRoot, node: DOMNativeVNode<Type, Instance>) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>;
+  [EXPERIMENT_attributeMode]?: "set" | "remove" | "exact";
+  [EXPERIMENT_attributes]?: Record<string, string> | string[];
+}
+
 export interface DOMNativeVNode<Type extends DOMNativeVNodeType = DOMNativeVNodeType, Instance extends DOMNativeVNodeInstance = DOMNativeVNodeInstance> extends NativeVNode {
   source: string;
-  options: {
-    type: DOMNativeVNodeType,
-    namespace?: string;
-    whenDefined?: boolean;
-    is?: string;
-    instance?: DOMNativeVNodeInstance;
-    [EXPERIMENT_onAttached]?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-    [EXPERIMENT_getDocumentNode]?: (root: DOMRoot, node: DOMNativeVNode<Type, Instance>) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>
-    [EXPERIMENT_attributeMode]?: "set" | "remove" | "exact";
-    [EXPERIMENT_attributes]?: Record<string, string> | string[];
-  };
+  options: DOMNativeVNodeOptions<Type, Instance>;
 }
 
 const HydratedDOMNativeVNodeSymbol = Symbol("Hydrated DOM Native VNode");

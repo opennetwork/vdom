@@ -18,6 +18,16 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
+"@opennetwork/vnode-fragment@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode-fragment/-/vnode-fragment-3.0.0.tgz#4d264cb5a08556fe08585449b07d1ae0b3b8942d"
+  integrity sha512-0SbUio71OJ28Onslp9FjbdIi3vLRWkyivYi2Pf8QN7jK5f0wRlTRpkDsZbi7bBgb080vEX3PTb4oaZd0blpk1A==
+
+"@opennetwork/vnode-hooks@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode-hooks/-/vnode-hooks-3.0.0.tgz#6beeaab881473eeede6a4f01036bda6a7246b235"
+  integrity sha512-fM1pA3AfvML0FFY/JtHe0LrO9CPZCSSZi/4lKJomit8qS/QiosQDJzhKBO5U6js36eszkXk7nQlCl+lB78fBAw==
+
 "@opennetwork/vnode@^14.0.0":
   version "14.0.0"
   resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-14.0.0.tgz#f52d3bb305c22306da26f8a4ed5a579b0c23929f"
@@ -427,6 +437,11 @@ has-flag@^3.0.0:
   version "3.0.0"
   resolved "https://registry.npmjs.org/has-flag/-/has-flag-3.0.0.tgz#b5d454dc2199ae225699f3467e5a07f3b955bafd"
   integrity sha1-tdRU3CGZriJWmfNGfloH87lVuv0=
+
+htm@^2.2.1:
+  version "2.2.1"
+  resolved "https://registry.npmjs.org/htm/-/htm-2.2.1.tgz#02ae7459901b3956aeaf6c7ae627fb6905dc7607"
+  integrity sha512-nPWqBlSbdSHaT2d/cpFRpZLqH5BcdaRcXaicyAtXbkIsIiXLnstPPg0fEX3I8SrlY16FSzb1FLK44uk25xhMvw==
 
 html-encoding-sniffer@^1.0.2:
   version "1.0.2"

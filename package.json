@@ -14,19 +14,24 @@
   },
   "peerDependencies": {
     "@opennetwork/vnode": "^14.0.0",
+    "@opennetwork/vnode-fragment": "^3.0.0",
     "iterable": "^5.6.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "htm": "^2.2.1"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/opennetwork/vdom.git"
   },
   "devDependencies": {
     "@opennetwork/vnode": "^14.0.0",
-    "iterable": "^5.6.0",
+    "@opennetwork/vnode-fragment": "^3.0.0",
+    "@opennetwork/vnode-hooks": "^3.0.0",
     "@types/jsdom": "^12.2.4",
     "esm": "^3.2.25",
     "filehound": "^1.17.3",
+    "iterable": "^5.6.0",
     "jsdom": "^15.1.1",
     "tslint": "^5.20.0",
     "typescript": "^3.6.3"
