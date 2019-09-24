@@ -1,6 +1,6 @@
 {
   "name": "@opennetwork/vdom",
-  "version": "1.2.2",
+  "version": "2.0.0",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,8 +16,7 @@
     "@opennetwork/vnode": "^14.0.0",
     "iterable": "^5.6.0"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "repository": {
     "type": "git",
     "url": "https://github.com/opennetwork/vdom.git"
