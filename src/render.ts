@@ -8,19 +8,11 @@ import {
   EXPERIMENT_getDocumentNode,
   EXPERIMENT_onAttached
 } from "./experiments";
+import { Blocks } from "./blocks";
 
 export async function render(initialNode: VNode, root: DOMRoot, atIndex: number = 0): Promise<void> {
   for await (const node of produce(initialNode)) {
-    let currentParent: Text | Element | DOMRoot = root;
-    if (isHydratedDOMNativeVNode(node)) {
-      currentParent = await replaceChild(root, node, atIndex);
-      if (!isElement(currentParent)) {
-        continue;
-      }
-    }
-    for await (const children of node.children) {
-      await replaceChildren(currentParent, children, 0);
-    }
+    await renderChildren(root, asyncIterable([node]), () => atIndex, undefined, () => true);
   }
 }
 
@@ -58,7 +50,7 @@ async function replaceChild(documentNode: DOMRoot, child: HydratedDOMNativeVNode
   }
 }
 
-function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): boolean {
+function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): given is (Text | Element) {
   if (!given) {
     return false;
   }
@@ -78,192 +70,136 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): boo
   return expected.source === given.localName;
 }
 
-async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, atIndex: number = 0): Promise<number> {
-  if (atIndex < 0) {
-    throw new Error("Expected index to be equal to or above 0");
-  }
+async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, getIndex: () => number, onSizeChange?: (value: number) => void, isOpen?: () => boolean): Promise<number> {
 
-  if (atIndex !== 0) {
-    const currentLength = documentNode.childNodes.length;
-    if (currentLength < atIndex) {
-      throw new Error(`When an index is used, all elements beforehand must already exist. Expected elements: ${atIndex}, found elements: ${currentLength}`);
-    }
-  }
-
-  // Representing [minIndex, maxIndex]
-  // Each child is booking theses spots
-  //
-  // These values can be shifted at any point
-  //
-  // TODO Add experimental flag to pre-book a spot
-  // Others can move our spot, but our spot must stay the same size no matter what
-  // Our spot can also change order
-  const childrenOccupied: number[][] = [];
+  const blocks = new Blocks(onSizeChange);
   const childrenPromises: Promise<unknown>[] = [];
-
-  let maxMounted: number = -1;
-
-  // Children must be eager in
-
-  let reducedSize = false,
-    timeSinceStart = Date.now();
 
   try {
     for await (const child of children) {
-      childrenPromises.push(withChild(child, childrenPromises.length));
+      const pointer = Symbol("Child pointer");
+      // This gives us a stable index
+      blocks.getInfo(pointer);
+      childrenPromises.push(withChild(child, pointer));
     }
   } finally {
-
+    // TODO accumulate all the errors from children
+    await Promise.all(childrenPromises);
   }
 
   // All children will have been mounted here, so we must remove any additional
-  return reduceDocumentNodeSize();
+  return reduceDocumentNodeSize(blocks, documentNode, isOpen);
 
-  function reduceDocumentNodeSize(): number {
-    // Max occupied
-    const expectedLength = childrenOccupied.reduce((max, next) => Math.max(max, next[1]), 0);
-    while (documentNode.childNodes.length > expectedLength) {
-      documentNode.removeChild(documentNode.lastChild);
+  function reduceDocumentNodeSize(blocks: Blocks, documentNode: Element | DOMRoot, isOpen: () => boolean): number {
+    const expectedLength = blocks.size();
+    if (!(isOpen && isOpen())) {
+      return expectedLength; // If we're not open, then we can't know if we can reduce in size
     }
-    reducedSize = true;
-    timeSinceStart = undefined;
+    // while (documentNode.childNodes.length > expectedLength) {
+    //   documentNode.removeChild(documentNode.lastChild);
+    // }
     return expectedLength;
   }
 
-  async function withChild(child: VNode, index: number) {
-    const currentSize = childrenSizes[index] = childrenSizes[index] || 0;
+  function indexer(blocks: Blocks, pointer: symbol) {
+    return () => {
+      const baseIndex = getIndex();
+      const index = blocks.index(pointer);
+      return baseIndex + index;
+    };
+  }
+
+  async function withChild(child: VNode, pointer: symbol) {
 
     if (isFragmentVNode(child)) {
-      // We're going to expand here
-
-
-      return;
-    } else if (!isHydratedDOMNativeVNode(child)) {
+      for await (const children of child.children) {
+        await renderChildren(documentNode, children, indexer(blocks, pointer), blocks.getSetter(pointer), blocks.getOpener(pointer));
+      }
       return;
     }
 
-    if (maxMounted < index && documentNode.children.length > index) {
-      const currentChildDocumentNode = documentNode.children.item(index);
-      if (isExpectedNode(child, currentChildDocumentNode)) {
-        // This would prevent any nodes behind us from jacking this
-        maxMounted = index;
+    if (!isHydratedDOMNativeVNode(child)) {
+      return;
+    }
+
+    const childDocumentNode = await mount(child);
+
+    if (isElement(childDocumentNode)) {
+      setAttributes(child, childDocumentNode);
+    }
+
+    if (child.options[EXPERIMENT_onAttached]) {
+      await child.options[EXPERIMENT_onAttached](childDocumentNode);
+    }
+
+    if (isElement(childDocumentNode)) {
+      const blocks = new Blocks();
+      const isOpen = () => true;
+      if (child.children) {
+        const pointer = Symbol("Element child pointer");
+        for await (const children of child.children) {
+          await renderChildren(childDocumentNode, children, () => 0, blocks.getSetter(pointer), isOpen);
+        }
       }
+      reduceDocumentNodeSize(blocks, childDocumentNode, isOpen);
     }
 
+    async function mount(child: HydratedDOMNativeVNode): Promise<Element | Text> {
+      const index = indexer(blocks, pointer);
+      const previousLength = blocks.length(pointer);
 
-    // TODO Decide on some artificial target to hit to pre-reduce the size
-    // This would be to handle _long waits_ for children renders
-    // if (!reducedSize) {
-    //   reduceDocumentNodeSize();
-    // }
-
-  }
-}
-
-async function replaceChildren(documentNode: DOMRoot, nextChildren: AsyncIterable<VNode>, atIndex: number = 0): Promise<void> {
-
-  if (atIndex < 0) {
-    throw new Error("Expected index to be equal to or above 0");
-  }
-
-  if (atIndex !== 0) {
-    const currentLength = documentNode.childNodes.length;
-    if (currentLength < atIndex) {
-      throw new Error(`When an index is used, all elements beforehand must already exist. Expected elements: ${atIndex}, found elements: ${currentLength}`);
-    }
-  }
-
-  // A promise that will never resolve
-  const deadPromise: Promise<void> = new Promise(() => {});
-
-  const childPromises: Promise<void>[] = [];
-
-  // We only want our childErrorPromise to throw, never resolve
-  let childErrorPromise: Promise<void> = deadPromise;
-
-  const previousChildNodes: VNode[] = [];
-  const nextChildNodes = await asyncExtendedIterable(nextChildren)
-    .filter(node => !!node)
-    .tap(async child => {
-      await Promise.race([
-        nextChild(child),
-        childErrorPromise
-      ]);
-    })
-    .toArray();
-
-  while (documentNode.childNodes.length > nextChildNodes.length) {
-    documentNode.removeChild(documentNode.lastChild);
-  }
-
-  // TODO settle all, collect errors
-  await Promise.all(childPromises);
-
-  async function nextChild(child: VNode) {
-    const currentExpectedChildNodes = previousChildNodes.slice();
-    previousChildNodes.push(child);
-    const previousIndex = currentExpectedChildNodes.length - 1;
-
-    if (currentExpectedChildNodes[0]) {
-      const previousIndex = currentExpectedChildNodes.length - 1;
-      const previousExpectedNode = currentExpectedChildNodes[previousIndex];
-      const previousFoundNode = documentNode.childNodes.item(previousIndex + atIndex);
-      if (!isExpectedNode(previousExpectedNode, previousFoundNode)) {
-        throw new Error("DOM has been tampered with during the render cycle!");
+      // We previously took up one space, so we know that we should be able to match
+      if (previousLength === 1) {
+        const existingCheckIndex = index();
+        if (documentNode.children.length > existingCheckIndex) {
+          const currentChildDocumentNode = documentNode.children.item(existingCheckIndex);
+          if (isExpectedNode(child, currentChildDocumentNode)) {
+            // TODO currentChildDocumentNode.replaceData(child.source);
+            if (!isText(currentChildDocumentNode) || currentChildDocumentNode.textContent === child.source) {
+              blocks.set(pointer, 1);
+              return currentChildDocumentNode; // We're good to go, we statically know that we've got the correct value here
+            }
+          }
+        }
       }
-    }
-    const node = await replaceChild(documentNode, child, previousIndex + 1 + atIndex);
 
-    if (isElement(node)) {
-      await setAttributes(child, node);
-    }
+      const childDocumentNode: Element | Text = await getDocumentNode(documentNode, child);
 
-    if (child.options && typeof child.options[EXPERIMENT_onAttached] === "function") {
-      const returnedValue = child.options[EXPERIMENT_onAttached](node);
-      if (isPromise(returnedValue)) {
-        await returnedValue;
+      const previousChildrenLength = documentNode.children.length;
+
+      // We can replace something existing
+      const currentIndex = index();
+
+      if (previousChildrenLength < currentIndex) {
+        throw new Error(`Expected ${index} child${currentIndex ? "" : "ren"}, found ${previousChildrenLength}`);
       }
+
+      if (previousChildrenLength === currentIndex) {
+        documentNode.appendChild(childDocumentNode);
+        blocks.set(pointer, 1);
+        return childDocumentNode;
+      }
+
+      const previousChildDocumentNode = documentNode.children.item(currentIndex);
+      let mountedChildDocumentNode: Element | Text = previousChildDocumentNode;
+
+      // We can still abort, we never attached our DOM node
+      if (!isExpectedNode(child, previousChildDocumentNode) || (isText(previousChildDocumentNode) && previousChildDocumentNode.textContent !== child.source)) {
+        mountedChildDocumentNode = childDocumentNode;
+        documentNode.replaceChild(
+          childDocumentNode,
+          previousChildDocumentNode
+        );
+      }
+
+      while (blocks.length(pointer) > 1 && mountedChildDocumentNode.nextSibling) {
+        documentNode.removeChild(mountedChildDocumentNode.nextSibling);
+        blocks.reduce(pointer, 1);
+      }
+
+      blocks.set(pointer, 1);
+      return mountedChildDocumentNode;
     }
-
-    if (isElement(node)) {
-      const promise = replaceChildrenForNode(child, node);
-      addChildPromise(promise);
-    }
-  }
-
-  async function replaceChildrenForNode(parent: HydratedDOMNativeVNode, documentNode: Element) {
-    await render(
-      {
-        reference: Fragment,
-        children: parent.children
-      },
-      documentNode,
-      0
-    );
-  }
-
-
-  function addChildPromise(promise: Promise<void>) {
-    promise.then(remove, remove);
-    childPromises.push(promise);
-    setupChildErrorPromise();
-    function remove() {
-      removeChildPromise(promise);
-    }
-  }
-
-  function removeChildPromise(promise: Promise<void>) {
-    const index = childPromises.indexOf(promise);
-    if (index > -1) {
-      childPromises.splice(index, 1);
-      setupChildErrorPromise();
-    }
-  }
-
-  function setupChildErrorPromise() {
-    // This can only throw when there is an issue
-    childErrorPromise = Promise.all(childPromises)
-      .then(() => deadPromise);
   }
 }
 
@@ -280,7 +216,7 @@ async function getDocumentNode(root: DOMRoot, node: HydratedDOMNativeVNode): Pro
         } else if (node.options.type === "Element") {
           throw new Error(`Expected getDocumentNode to return an Element node with the localName ${node.source}${node.options.namespace ? `, and the namespace ${node.options.namespace}` : ""}, but didn't receive this`);
         } else {
-          throw new Error(`getDocumentNode returned an unexpected node type, expected ${node.options.type}, but got nodeType ${result.nodeType}, see https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType`);
+          throw new Error(`getDocumentNode returned an unexpected node type, expected ${node.options.type}, see https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType`);
 
         }
       }
@@ -309,7 +245,7 @@ async function getDocumentNode(root: DOMRoot, node: HydratedDOMNativeVNode): Pro
   }
 }
 
-async function setAttributes(node: HydratedDOMNativeVNode, documentNode: Element) {
+function setAttributes(node: HydratedDOMNativeVNode, documentNode: Element) {
   const attributes = node.options[EXPERIMENT_attributes];
   if (!attributes) {
     return;

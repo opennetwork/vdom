@@ -7,7 +7,6 @@ import {
   VNode
 } from "@opennetwork/vnode";
 import { asyncExtendedIterable } from "iterable";
-import { ListAsyncIterable, ListUpdaterAsyncIterable } from "./branded-iterables";
 import {
   EXPERIMENT_onAttached,
   EXPERIMENT_getDocumentNode,
@@ -40,7 +39,7 @@ const HydratedDOMNativeVNodeSymbol = Symbol("Hydrated DOM Native VNode");
 
 export interface HydratedDOMNativeVNode extends DOMNativeVNode {
   hydrated: true;
-  children?: ListUpdaterAsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>>;
+  children?: AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>>;
   [HydratedDOMNativeVNodeSymbol]: true;
 }
 

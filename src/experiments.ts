@@ -1,8 +1,7 @@
 import { mutate } from "@opennetwork/vnode-fragment";
 import { VNode } from "@opennetwork/vnode";
 import { asyncIterable } from "iterable";
-import { DOMNativeVNodeOptions, isDOMNativeVNode } from "./native";
-import { hooks } from "@opennetwork/vnode-hooks";
+import { DOMNativeVNodeOptions } from "./native";
 
 export const EXPERIMENT_onAttached = Symbol("onAttached");
 export const EXPERIMENT_getDocumentNode = Symbol("getDocumentNode");
