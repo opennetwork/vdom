@@ -1,8 +1,7 @@
-import { Fragment, VNode } from "@opennetwork/vnode";
+import { Fragment, isFragmentVNode, VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
 import { asyncExtendedIterable, asyncIterable, AsyncIterableLike, isPromise } from "iterable";
-import { DOMNativeVNode, HydratedDOMNativeVNode, DOMRoot } from "./native";
-import { ListAsyncIterable } from "./branded-iterables";
+import { DOMNativeVNode, HydratedDOMNativeVNode, DOMRoot, isDOMNativeVNode, isHydratedDOMNativeVNode } from "./native";
 import {
   EXPERIMENT_attributeMode,
   EXPERIMENT_attributes,
@@ -10,9 +9,18 @@ import {
   EXPERIMENT_onAttached
 } from "./experiments";
 
-export async function render(vnode: VNode, root: DOMRoot, atIndex: number = 0): Promise<void> {
-  for await (const nodes of produce(vnode)) {
-    await replaceChildren(root, nodes, atIndex);
+export async function render(initialNode: VNode, root: DOMRoot, atIndex: number = 0): Promise<void> {
+  for await (const node of produce(initialNode)) {
+    let currentParent: Text | Element | DOMRoot = root;
+    if (isHydratedDOMNativeVNode(node)) {
+      currentParent = await replaceChild(root, node, atIndex);
+      if (!isElement(currentParent)) {
+        continue;
+      }
+    }
+    for await (const children of node.children) {
+      await replaceChildren(currentParent, children, 0);
+    }
   }
 }
 
@@ -70,7 +78,24 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): boo
   return expected.source === given.localName;
 }
 
-async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIterable<HydratedDOMNativeVNode>, atIndex: number = 0): Promise<void> {
+async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, atIndex: number = 0): Promise<void> {
+  if (atIndex < 0) {
+    throw new Error("Expected index to be equal to or above 0");
+  }
+
+  if (atIndex !== 0) {
+    const currentLength = documentNode.childNodes.length;
+    if (currentLength < atIndex) {
+      throw new Error(`When an index is used, all elements beforehand must already exist. Expected elements: ${atIndex}, found elements: ${currentLength}`);
+    }
+  }
+
+  for await (const child of children) {
+
+  }
+}
+
+async function replaceChildren(documentNode: DOMRoot, nextChildren: AsyncIterable<VNode>, atIndex: number = 0): Promise<void> {
 
   if (atIndex < 0) {
     throw new Error("Expected index to be equal to or above 0");
@@ -91,7 +116,7 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
   // We only want our childErrorPromise to throw, never resolve
   let childErrorPromise: Promise<void> = deadPromise;
 
-  const previousChildNodes: HydratedDOMNativeVNode[] = [];
+  const previousChildNodes: VNode[] = [];
   const nextChildNodes = await asyncExtendedIterable(nextChildren)
     .filter(node => !!node)
     .tap(async child => {
@@ -109,7 +134,7 @@ async function replaceChildren(documentNode: DOMRoot, nextChildren: ListAsyncIte
   // TODO settle all, collect errors
   await Promise.all(childPromises);
 
-  async function nextChild(child: HydratedDOMNativeVNode) {
+  async function nextChild(child: VNode) {
     const currentExpectedChildNodes = previousChildNodes.slice();
     previousChildNodes.push(child);
     const previousIndex = currentExpectedChildNodes.length - 1;

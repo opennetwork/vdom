@@ -7,46 +7,29 @@ import {
   native
 } from "./native";
 import {
-  asyncExtendedIterable,
-  asyncIterable
+  asyncExtendedIterable
 } from "iterable";
-import { merge } from "./merge";
-import {
-  getListAsyncIterable,
-  getListUpdaterAsyncIterable,
-  ListAsyncIterable,
-  ListUpdaterAsyncIterable
-} from "./branded-iterables";
+import { Fragment, FragmentVNode } from "@opennetwork/vnode";
 
-export function produce(node: VNode): ListUpdaterAsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
-  return getListUpdaterAsyncIterable(produceGenerator(node));
-
-  async function *produceGenerator(node: VNode): AsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
-    if (isDOMNativeVNode(node)) {
-      const hydrated = getHydratedDOMNativeVNode({
-        ...node,
-        children: produceChildren(node)
-      });
-      yield getListAsyncIterable(asyncIterable([hydrated]));
-    } else if (isNativeCompatible(node)) {
-      yield* produce(native(undefined, node));
-    } else {
-      yield* produceChildren(node);
-    }
+export async function *produce(node: VNode): AsyncIterable<FragmentVNode | HydratedDOMNativeVNode> {
+  if (isDOMNativeVNode(node)) {
+    yield getHydratedDOMNativeVNode({
+      ...node,
+      children: produceChildren(node)
+    });
+  } else if (isNativeCompatible(node)) {
+    yield* produce(native(undefined, node));
+  } else {
+    yield {
+      reference: Fragment,
+      children: produceChildren(node)
+    };
   }
 }
 
-function produceChildren(node: VNode): ListUpdaterAsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
-
-  return getListUpdaterAsyncIterable(produceChildrenGenerator(node));
-
-  async function *produceChildrenGenerator(node: VNode): AsyncIterable<ListAsyncIterable<HydratedDOMNativeVNode>> {
-    for await (const children of node.children) {
-      yield* merge<HydratedDOMNativeVNode>(
-        asyncExtendedIterable(children).map(produce)
-      );
-    }
+async function *produceChildren(node: VNode): AsyncIterable<AsyncIterable<FragmentVNode | HydratedDOMNativeVNode>> {
+  for await (const children of node.children) {
+    yield asyncExtendedIterable(children).flatMap(child => produce(child));
   }
-
 }
 
