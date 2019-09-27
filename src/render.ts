@@ -78,7 +78,7 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): boo
   return expected.source === given.localName;
 }
 
-async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, atIndex: number = 0): Promise<void> {
+async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, atIndex: number = 0): Promise<number> {
   if (atIndex < 0) {
     throw new Error("Expected index to be equal to or above 0");
   }
@@ -90,7 +90,72 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
     }
   }
 
-  for await (const child of children) {
+  // Representing [minIndex, maxIndex]
+  // Each child is booking theses spots
+  //
+  // These values can be shifted at any point
+  //
+  // TODO Add experimental flag to pre-book a spot
+  // Others can move our spot, but our spot must stay the same size no matter what
+  // Our spot can also change order
+  const childrenOccupied: number[][] = [];
+  const childrenPromises: Promise<unknown>[] = [];
+
+  let maxMounted: number = -1;
+
+  // Children must be eager in
+
+  let reducedSize = false,
+    timeSinceStart = Date.now();
+
+  try {
+    for await (const child of children) {
+      childrenPromises.push(withChild(child, childrenPromises.length));
+    }
+  } finally {
+
+  }
+
+  // All children will have been mounted here, so we must remove any additional
+  return reduceDocumentNodeSize();
+
+  function reduceDocumentNodeSize(): number {
+    // Max occupied
+    const expectedLength = childrenOccupied.reduce((max, next) => Math.max(max, next[1]), 0);
+    while (documentNode.childNodes.length > expectedLength) {
+      documentNode.removeChild(documentNode.lastChild);
+    }
+    reducedSize = true;
+    timeSinceStart = undefined;
+    return expectedLength;
+  }
+
+  async function withChild(child: VNode, index: number) {
+    const currentSize = childrenSizes[index] = childrenSizes[index] || 0;
+
+    if (isFragmentVNode(child)) {
+      // We're going to expand here
+
+
+      return;
+    } else if (!isHydratedDOMNativeVNode(child)) {
+      return;
+    }
+
+    if (maxMounted < index && documentNode.children.length > index) {
+      const currentChildDocumentNode = documentNode.children.item(index);
+      if (isExpectedNode(child, currentChildDocumentNode)) {
+        // This would prevent any nodes behind us from jacking this
+        maxMounted = index;
+      }
+    }
+
+
+    // TODO Decide on some artificial target to hit to pre-reduce the size
+    // This would be to handle _long waits_ for children renders
+    // if (!reducedSize) {
+    //   reduceDocumentNodeSize();
+    // }
 
   }
 }
