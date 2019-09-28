@@ -28,7 +28,7 @@ export class Blocks {
   private cachedLength: number = 0;
   private cachedOccupation: [number, number, boolean][] = [];
 
-  constructor(private readonly onSizeChange?: (size: number) => void) {
+  constructor(private readonly onSizeChange?: (size: number) => void, private readonly isOpen?: () => boolean) {
 
   }
 
@@ -58,7 +58,7 @@ export class Blocks {
     const previousIndexes = positioned.filter(index => this.positions[index] < position);
 
     // If we're the last index, then we can do what we need
-    const isOpen = !positioned.some(index => this.positions[index] > position);
+    const isOpen = this.isOpen && this.isOpen() && !positioned.some(index => this.positions[index] > position);
 
     // Our index is the maximum length for positions before our own
     const occupiedIndex = sum(previousIndexes.map(index => this.lengths[index]));

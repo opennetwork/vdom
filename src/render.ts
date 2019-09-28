@@ -1,7 +1,7 @@
-import { Fragment, isFragmentVNode, VNode } from "@opennetwork/vnode";
+import { isFragmentVNode, VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
-import { asyncExtendedIterable, asyncIterable, AsyncIterableLike, isPromise } from "iterable";
-import { DOMNativeVNode, HydratedDOMNativeVNode, DOMRoot, isDOMNativeVNode, isHydratedDOMNativeVNode } from "./native";
+import { asyncIterable, isPromise } from "iterable";
+import { HydratedDOMNativeVNode, DOMRoot, isHydratedDOMNativeVNode } from "./native";
 import {
   EXPERIMENT_attributeMode,
   EXPERIMENT_attributes,
@@ -22,32 +22,6 @@ function isText(node?: Node): node is Text {
 
 function isElement(node?: Node): node is Element {
   return !!node && typeof node.nodeType === "number" && node.nodeType === node.ELEMENT_NODE;
-}
-
-async function replaceChild(documentNode: DOMRoot, child: HydratedDOMNativeVNode, atIndex: number): Promise<Element | Text> {
-  const length = documentNode.childNodes.length;
-  // We're replacing
-  if (length > atIndex) {
-    const currentNode = documentNode.childNodes.item(atIndex);
-    if (!currentNode) {
-      throw new Error(`Expected child at index ${atIndex}`);
-    }
-    // Already there, so no need to update, we will replace the children next
-    if (isElement(currentNode) && isExpectedNode(child, currentNode)) {
-      return currentNode;
-    }
-    const childDocumentNode = await getDocumentNode(documentNode, child);
-    documentNode.replaceChild(
-      childDocumentNode,
-      currentNode
-    );
-    return childDocumentNode;
-  } else {
-    // We're appending
-    const childDocumentNode = await getDocumentNode(documentNode, child);
-    documentNode.appendChild(childDocumentNode);
-    return childDocumentNode;
-  }
 }
 
 function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): given is (Text | Element) {
@@ -72,7 +46,7 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): giv
 
 async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, getIndex: () => number, onSizeChange?: (value: number) => void, isOpen?: () => boolean): Promise<number> {
 
-  const blocks = new Blocks(onSizeChange);
+  const blocks = new Blocks(onSizeChange, isOpen);
   const childrenPromises: Promise<unknown>[] = [];
 
   try {
@@ -92,12 +66,12 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
 
   function reduceDocumentNodeSize(blocks: Blocks, documentNode: Element | DOMRoot, isOpen: () => boolean): number {
     const expectedLength = blocks.size();
-    if (!(isOpen && isOpen())) {
+    if (!isOpen || !isOpen()) {
       return expectedLength; // If we're not open, then we can't know if we can reduce in size
     }
-    // while (documentNode.childNodes.length > expectedLength) {
-    //   documentNode.removeChild(documentNode.lastChild);
-    // }
+    while (documentNode.childNodes.length > expectedLength) {
+      documentNode.removeChild(documentNode.lastChild);
+    }
     return expectedLength;
   }
 
@@ -112,8 +86,12 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
   async function withChild(child: VNode, pointer: symbol) {
 
     if (isFragmentVNode(child)) {
+      const index = indexer(blocks, pointer);
+      const setter = blocks.getSetter(pointer);
+      // TODO figure out why fragment children can't be open ended
+      // const opener = blocks.getOpener(pointer);
       for await (const children of child.children) {
-        await renderChildren(documentNode, children, indexer(blocks, pointer), blocks.getSetter(pointer), blocks.getOpener(pointer));
+        await renderChildren(documentNode, children, index, setter, () => false);
       }
       return;
     }
@@ -151,8 +129,8 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
       // We previously took up one space, so we know that we should be able to match
       if (previousLength === 1) {
         const existingCheckIndex = index();
-        if (documentNode.children.length > existingCheckIndex) {
-          const currentChildDocumentNode = documentNode.children.item(existingCheckIndex);
+        if (documentNode.childNodes.length > existingCheckIndex) {
+          const currentChildDocumentNode = documentNode.childNodes.item(existingCheckIndex);
           if (isExpectedNode(child, currentChildDocumentNode)) {
             // TODO currentChildDocumentNode.replaceData(child.source);
             if (!isText(currentChildDocumentNode) || currentChildDocumentNode.textContent === child.source) {
@@ -165,13 +143,13 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
 
       const childDocumentNode: Element | Text = await getDocumentNode(documentNode, child);
 
-      const previousChildrenLength = documentNode.children.length;
+      const previousChildrenLength = documentNode.childNodes.length;
 
       // We can replace something existing
       const currentIndex = index();
 
       if (previousChildrenLength < currentIndex) {
-        throw new Error(`Expected ${index} child${currentIndex ? "" : "ren"}, found ${previousChildrenLength}`);
+        throw new Error(`Expected ${currentIndex} child${currentIndex ? "" : "ren"}, found ${previousChildrenLength}`);
       }
 
       if (previousChildrenLength === currentIndex) {
@@ -180,8 +158,8 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
         return childDocumentNode;
       }
 
-      const previousChildDocumentNode = documentNode.children.item(currentIndex);
-      let mountedChildDocumentNode: Element | Text = previousChildDocumentNode;
+      const previousChildDocumentNode = documentNode.childNodes.item(currentIndex);
+      let mountedChildDocumentNode: Element | Text | ChildNode = previousChildDocumentNode;
 
       // We can still abort, we never attached our DOM node
       if (!isExpectedNode(child, previousChildDocumentNode) || (isText(previousChildDocumentNode) && previousChildDocumentNode.textContent !== child.source)) {
@@ -198,6 +176,11 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
       }
 
       blocks.set(pointer, 1);
+
+      if (!(isElement(mountedChildDocumentNode) || isText(mountedChildDocumentNode))) {
+        throw new Error("Expected Text or Element node");
+      }
+
       return mountedChildDocumentNode;
     }
   }
