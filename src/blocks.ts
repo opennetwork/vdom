@@ -26,24 +26,26 @@ export class Blocks {
   private lengths: number[] = [];
 
   private cachedLength: number = 0;
-  private cachedOccupation: [number, number, boolean][] = [];
+  private cachedOccupation: [number, number, boolean][] = undefined;
 
-  constructor(private readonly onSizeChange?: (size: number) => void, private readonly isOpen?: () => boolean) {
+  constructor(private readonly getIndex?: () => number, private readonly onSizeChange?: (size: number) => void, private readonly isOpen?: () => boolean) {
 
   }
 
   getInfo(pointer: symbol): [number, number] {
-    const index = this.getIndex(pointer);
+    const index = this.getInternalIndex(pointer);
     const position = this.positions[index];
     const length = this.lengths[index];
     return [typeof position === "number" ? position : -1, Math.max(0, typeof length === "number" ? length : 0)];
   }
 
   get(pointer: symbol): [number, number, boolean] {
-    const index = this.getIndex(pointer);
+    const index = this.getInternalIndex(pointer);
 
     // We already know the space we're occupying
-    if (this.cachedOccupation[index]) {
+    //
+    // But only if we don't change based on an external function
+    if (this.cachedOccupation && this.cachedOccupation[index] && !this.isOpen && !this.getIndex) {
       return this.cachedOccupation[index];
     }
 
@@ -61,9 +63,16 @@ export class Blocks {
     const isOpen = this.isOpen && this.isOpen() && !positioned.some(index => this.positions[index] > position);
 
     // Our index is the maximum length for positions before our own
-    const occupiedIndex = sum(previousIndexes.map(index => this.lengths[index]));
+    const occupiedIndex = (this.getIndex ? this.getIndex() : 0) + sum(previousIndexes.map(index => this.lengths[index]));
 
-    return this.cachedOccupation[index] = [occupiedIndex, occupiedIndex + length, isOpen];
+    const occupation: [number, number, boolean] = [occupiedIndex, occupiedIndex + length, isOpen];
+
+    if (!this.isOpen && !this.getIndex) {
+      this.cachedOccupation = this.cachedOccupation || [];
+      this.cachedOccupation[index] = occupation;
+    }
+
+    return occupation;
   }
 
   index(pointer: symbol): number {
@@ -71,8 +80,8 @@ export class Blocks {
   }
 
   length(pointer: symbol): number {
-    const index = this.getIndex(pointer);
-    return this.lengths[index];
+    const index = this.getInternalIndex(pointer);
+    return this.lengths[index] || 0;
   }
 
   expand(pointer: symbol, by: number = 1) {
@@ -88,6 +97,10 @@ export class Blocks {
     this.move(pointer, position, typeof nextLength === "function" ? nextLength(length) : nextLength);
   }
 
+  getIndexer(pointer: symbol): () => number {
+    return () => this.get(pointer)[0];
+  }
+
   getSetter(pointer: symbol): (nextLength: number) => void {
     // Trigger stable index
     this.getInfo(pointer);
@@ -99,14 +112,14 @@ export class Blocks {
   }
 
   move(pointer: symbol, nextPosition: number, nextLength: number) {
-    const index = this.getIndex(pointer);
+    const index = this.getInternalIndex(pointer);
     const currentPosition = this.positions[index];
     const currentLength = typeof this.lengths[index] === "number" ? this.lengths[index] : 0;
     // Any movement resets occupation
     // If we go through an figure out next occupation points, then we might as well
     // pre-calculate it all, which may not be needed
     // We have all the information required to calculate each value individually
-    this.cachedOccupation = [];
+    this.cachedOccupation = undefined;
 
     if (currentPosition !== nextPosition) {
       this.positions[index] = nextPosition;
@@ -129,7 +142,7 @@ export class Blocks {
     return this.cachedLength = sum(this.lengths);
   }
 
-  private getIndex(pointer: symbol): number {
+  private getInternalIndex(pointer: symbol): number {
     if (!pointer) {
       throw new Error("Required a pointer value");
     }

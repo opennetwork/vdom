@@ -46,12 +46,12 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): giv
 
 async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, getIndex: () => number, onSizeChange?: (value: number) => void, isOpen?: () => boolean): Promise<number> {
 
-  const blocks = new Blocks(onSizeChange, isOpen);
+  const blocks = new Blocks(getIndex, onSizeChange, isOpen);
   const childrenPromises: Promise<unknown>[] = [];
 
   try {
     for await (const child of children) {
-      const pointer = Symbol("Child pointer");
+      const pointer = Symbol(`Child pointer - ${child.source}`);
       // This gives us a stable index
       blocks.getInfo(pointer);
       childrenPromises.push(withChild(child, pointer));
@@ -75,23 +75,14 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
     return expectedLength;
   }
 
-  function indexer(blocks: Blocks, pointer: symbol) {
-    return () => {
-      const baseIndex = getIndex();
-      const index = blocks.index(pointer);
-      return baseIndex + index;
-    };
-  }
-
   async function withChild(child: VNode, pointer: symbol) {
 
     if (isFragmentVNode(child)) {
-      const index = indexer(blocks, pointer);
+      const index = blocks.getIndexer(pointer);
       const setter = blocks.getSetter(pointer);
-      // TODO figure out why fragment children can't be open ended
-      // const opener = blocks.getOpener(pointer);
+      const isOpen = () => false;
       for await (const children of child.children) {
-        await renderChildren(documentNode, children, index, setter, () => false);
+        await renderChildren(documentNode, children, index, setter, isOpen);
       }
       return;
     }
@@ -113,17 +104,19 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
     if (isElement(childDocumentNode)) {
       const blocks = new Blocks();
       const isOpen = () => true;
+      const getIndex = () => 0;
+      const pointer = Symbol(`Element child pointer - ${child.source}`);
+      const onSizeChange = blocks.getSetter(pointer);
       if (child.children) {
-        const pointer = Symbol("Element child pointer");
         for await (const children of child.children) {
-          await renderChildren(childDocumentNode, children, () => 0, blocks.getSetter(pointer), isOpen);
+          await renderChildren(childDocumentNode, children, getIndex, onSizeChange, isOpen);
         }
       }
       reduceDocumentNodeSize(blocks, childDocumentNode, isOpen);
     }
 
     async function mount(child: HydratedDOMNativeVNode): Promise<Element | Text> {
-      const index = indexer(blocks, pointer);
+      const index = blocks.getIndexer(pointer);
       const previousLength = blocks.length(pointer);
 
       // We previously took up one space, so we know that we should be able to match
@@ -149,7 +142,7 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
       const currentIndex = index();
 
       if (previousChildrenLength < currentIndex) {
-        throw new Error(`Expected ${currentIndex} child${currentIndex ? "" : "ren"}, found ${previousChildrenLength}`);
+        throw new Error(`Expected ${currentIndex} child${currentIndex === 1 ? "" : "ren"}, found ${previousChildrenLength}`);
       }
 
       if (previousChildrenLength === currentIndex) {
@@ -161,18 +154,27 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
       const previousChildDocumentNode = documentNode.childNodes.item(currentIndex);
       let mountedChildDocumentNode: Element | Text | ChildNode = previousChildDocumentNode;
 
-      // We can still abort, we never attached our DOM node
-      if (!isExpectedNode(child, previousChildDocumentNode) || (isText(previousChildDocumentNode) && previousChildDocumentNode.textContent !== child.source)) {
+      if (blocks.length(pointer) === 0) {
+        // We never took up this space before, so lets create some room for us!
         mountedChildDocumentNode = childDocumentNode;
-        documentNode.replaceChild(
+        documentNode.insertBefore(
           childDocumentNode,
           previousChildDocumentNode
         );
-      }
+      } else {
+        // We can still abort, we never attached our DOM node
+        if (!isExpectedNode(child, previousChildDocumentNode) || (isText(previousChildDocumentNode) && previousChildDocumentNode.textContent !== child.source)) {
+          mountedChildDocumentNode = childDocumentNode;
+          documentNode.replaceChild(
+            childDocumentNode,
+            previousChildDocumentNode
+          );
+        }
 
-      while (blocks.length(pointer) > 1 && mountedChildDocumentNode.nextSibling) {
-        documentNode.removeChild(mountedChildDocumentNode.nextSibling);
-        blocks.reduce(pointer, 1);
+        while (blocks.length(pointer) > 1 && mountedChildDocumentNode.nextSibling) {
+          documentNode.removeChild(mountedChildDocumentNode.nextSibling);
+          blocks.reduce(pointer, 1);
+        }
       }
 
       blocks.set(pointer, 1);
