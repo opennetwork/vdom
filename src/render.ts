@@ -1,6 +1,6 @@
 import { Fragment, isFragmentVNode, VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
-import { asyncIterable, isPromise } from "iterable";
+import { asyncExtendedIterable, asyncIterable, extendedIterable, isPromise } from "iterable";
 import { HydratedDOMNativeVNode, DOMRoot, isHydratedDOMNativeVNode } from "./native";
 import {
   EXPERIMENT_attributeMode,
@@ -48,143 +48,250 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): giv
   return expected.source === given.localName;
 }
 
-async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, blocks: Blocks, pointers: Pointers, parent: VNode, isOpen: boolean = false): Promise<number> {
+async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, blocks: Blocks, pointers: Pointers, parent: VNode, isOpen: boolean = false): Promise<void> {
 
-  const childrenPromises: Promise<unknown>[] = [];
+  let previousChildren;
+  for await (const nextChildren of listChildren(children)) {
 
-  try {
-    for await (const child of children) {
-      const pointer = pointers.get(child, parent);
-      blocks.getInfo(pointer);
-      childrenPromises.push(withChild(child, pointer));
-    }
-  } finally {
-    // TODO accumulate all the errors from children
-    await Promise.all(childrenPromises);
+    
+
+    previousChildren = nextChildren;
   }
 
-  // All children will have been mounted here, so we must remove any additional
-  return reduceDocumentNodeSize(blocks, documentNode, isOpen);
 
-  function reduceDocumentNodeSize(blocks: Blocks, documentNode: Element | DOMRoot, isOpen: boolean): number {
-    const expectedLength = blocks.size();
-    if (!isOpen) {
-      return expectedLength; // If we're not open, then we can't know if we can reduce in size
+  // const childrenPromises: Promise<unknown>[] = [];
+  //
+  // try {
+  //   for await (const child of children) {
+  //     const pointer = pointers.get(child, parent);
+  //     blocks.getInfo(pointer);
+  //     childrenPromises.push(withChild(child, pointer));
+  //   }
+  // } finally {
+  //   // TODO accumulate all the errors from children
+  //   await Promise.all(childrenPromises);
+  // }
+  //
+  // // All children will have been mounted here, so we must remove any additional
+  // return reduceDocumentNodeSize(blocks, documentNode, isOpen);
+  //
+  // function reduceDocumentNodeSize(blocks: Blocks, documentNode: Element | DOMRoot, isOpen: boolean): number {
+  //   const expectedLength = blocks.size();
+  //   if (!isOpen) {
+  //     return expectedLength; // If we're not open, then we can't know if we can reduce in size
+  //   }
+  //   while (documentNode.childNodes.length > expectedLength) {
+  //     documentNode.removeChild(documentNode.lastChild);
+  //   }
+  //   return expectedLength;
+  // }
+  //
+  // async function withChild(child: VNode, pointer: symbol): Promise<(Element | Text)[]> {
+  //
+  //   if (isFragmentVNode(child)) {
+  //     const fragmentBlock = blocks.fragment(pointer);
+  //     for await (const children of child.children) {
+  //       await renderChildren(documentNode, children, fragmentBlock, pointers, parent, false);
+  //       fragmentBlock.clear();
+  //     }
+  //     return;
+  //   }
+  //
+  //   if (!isHydratedDOMNativeVNode(child)) {
+  //     return;
+  //   }
+  //
+  //   const childDocumentNode = await mount(child);
+  //
+  //   if (isElement(childDocumentNode)) {
+  //     setAttributes(child, childDocumentNode);
+  //   }
+  //
+  //   if (child.options[EXPERIMENT_onAttached]) {
+  //     await child.options[EXPERIMENT_onAttached](childDocumentNode);
+  //   }
+  //
+  //   if (isElement(childDocumentNode)) {
+  //     const blocks = new Blocks();
+  //     if (child.children) {
+  //       for await (const children of child.children) {
+  //         await renderChildren(childDocumentNode, children, blocks, pointers, child, true);
+  //       }
+  //     }
+  //     reduceDocumentNodeSize(blocks, childDocumentNode, true);
+  //   }
+  //
+  //   async function mount(child: HydratedDOMNativeVNode): Promise<Element | Text> {
+  //     const index = blocks.getIndexer(pointer);
+  //     const previousLength = blocks.length(pointer);
+  //
+  //     // We previously took up one space, so we know that we should be able to match
+  //     if (previousLength === 1) {
+  //       const existingCheckIndex = index();
+  //       if (documentNode.childNodes.length > existingCheckIndex) {
+  //         const currentChildDocumentNode = documentNode.childNodes.item(existingCheckIndex);
+  //         if (isExpectedNode(child, currentChildDocumentNode)) {
+  //           // TODO currentChildDocumentNode.replaceData(child.source);
+  //           if (!isText(currentChildDocumentNode) || currentChildDocumentNode.textContent === child.source) {
+  //             blocks.set(pointer, 1);
+  //             return currentChildDocumentNode; // We're good to go, we statically know that we've got the correct value here
+  //           }
+  //         }
+  //       }
+  //     }
+  //
+  //     const childDocumentNode: Element | Text = await getDocumentNode(documentNode, child);
+  //
+  //     const previousChildrenLength = documentNode.childNodes.length;
+  //
+  //     // We can replace something existing
+  //     const currentIndex = index();
+  //
+  //     if (previousChildrenLength < currentIndex) {
+  //       throw new Error(`Expected ${currentIndex} child${currentIndex === 1 ? "" : "ren"}, found ${previousChildrenLength}`);
+  //     }
+  //
+  //     if (previousChildrenLength === currentIndex) {
+  //       documentNode.appendChild(childDocumentNode);
+  //       blocks.set(pointer, 1);
+  //       return childDocumentNode;
+  //     }
+  //
+  //     const previousChildDocumentNode = documentNode.childNodes.item(currentIndex);
+  //     let mountedChildDocumentNode: Element | Text | ChildNode = previousChildDocumentNode;
+  //
+  //     console.log(blocks.length(pointer));
+  //
+  //     if (blocks.length(pointer) === 0) {
+  //       // We never took up this space before, so lets create some room for us!
+  //       mountedChildDocumentNode = childDocumentNode;
+  //       documentNode.insertBefore(
+  //         childDocumentNode,
+  //         previousChildDocumentNode
+  //       );
+  //     } else {
+  //       // We can still abort, we never attached our DOM node
+  //       if (!isExpectedNode(child, previousChildDocumentNode) || (isText(previousChildDocumentNode) && previousChildDocumentNode.textContent !== child.source)) {
+  //         mountedChildDocumentNode = childDocumentNode;
+  //         console.log("Replacing", childDocumentNode, previousChildDocumentNode);
+  //         documentNode.replaceChild(
+  //           childDocumentNode,
+  //           previousChildDocumentNode
+  //         );
+  //       }
+  //
+  //       while (blocks.length(pointer) > 1 && mountedChildDocumentNode.nextSibling) {
+  //         documentNode.removeChild(mountedChildDocumentNode.nextSibling);
+  //         blocks.reduce(pointer, 1);
+  //       }
+  //     }
+  //
+  //     blocks.set(pointer, 1);
+  //
+  //     if (!(isElement(mountedChildDocumentNode) || isText(mountedChildDocumentNode))) {
+  //       throw new Error("Expected Text or Element node");
+  //     }
+  //
+  //     return mountedChildDocumentNode;
+  //   }
+  // }
+}
+
+// Produce a static list of children progressively
+async function *listChildren(children: AsyncIterable<VNode>): AsyncIterable<HydratedDOMNativeVNode[]> {
+  const current: HydratedDOMNativeVNode[][] = [];
+
+  type Wait = [AsyncIterator<HydratedDOMNativeVNode[]>, Promise<IteratorResult<HydratedDOMNativeVNode[]>> | undefined, IteratorResult<HydratedDOMNativeVNode[]> | undefined];
+
+  const waiting: Wait[] = [];
+  let changed = false;
+
+  const childrenIterator = children[Symbol.asyncIterator]();
+
+  let nextChildPromise = childrenIterator.next();
+  let nextChild: IteratorResult<VNode>;
+
+  let nextPromise: Promise<unknown>;
+
+  do {
+    const newChild = await Promise.race([
+      nextChildPromise.then(() => true),
+      getNextChildren().then(() => false)
+    ]);
+
+    if (newChild) {
+      nextChild = await nextChildPromise;
+      if (!nextChild.done) {
+        if (nextChild.value) {
+          const iterator = withChild(nextChild.value)[Symbol.asyncIterator]();
+          waiting.push([iterator, iterator.next(), undefined]);
+        }
+        nextChildPromise = childrenIterator.next();
+      }
     }
-    while (documentNode.childNodes.length > expectedLength) {
-      documentNode.removeChild(documentNode.lastChild);
+
+    if (changed) {
+      yield extendedIterable(current).flatMap(value => value).toArray();
+      changed = false;
     }
-    return expectedLength;
+  } while (!nextChild || nextChild.done);
+
+  // Finish it off once we have no children left to check
+  while (waiting.some(([, promise]) => !!promise)) {
+    await getNextChildren();
+    if (changed) {
+      yield extendedIterable(current).flatMap(value => value).toArray();
+      changed = false;
+    }
   }
 
-  async function withChild(child: VNode, pointer: symbol): Promise<(Element | Text)[]> {
+  async function getNextChildren() {
+    // Forces to run only one at a time
+    return nextPromise = (nextPromise || Promise.resolve()).then(run);
+    async function run() {
 
+      const waitingOn = waiting
+        .map(
+          (wait, index) => {
+            if (!wait[1]) {
+              return undefined;
+            }
+            return wait[1].then((result): [Wait, number, IteratorResult<HydratedDOMNativeVNode[]>] => [wait, index, result]);
+          }
+        )
+        .filter(value => value);
+
+      if (!waitingOn.length) {
+        return;
+      }
+
+      const [wait, index, result] = await Promise.race(waitingOn);
+
+      waiting[index][2] = result;
+
+      if (result.done) {
+        waiting[index][1] = undefined;
+      } else {
+        changed = true;
+        current[index] = result.value || [];
+        waiting[index][1] = wait[0].next();
+      }
+
+
+    }
+  }
+
+  async function *withChild(child: VNode): AsyncIterable<HydratedDOMNativeVNode[]> {
     if (isFragmentVNode(child)) {
-      const fragmentBlock = blocks.fragment(pointer);
       for await (const children of child.children) {
-        await renderChildren(documentNode, children, fragmentBlock, pointers, parent, false);
-        fragmentBlock.clear();
+        yield* listChildren(children);
       }
       return;
     }
-
     if (!isHydratedDOMNativeVNode(child)) {
       return;
     }
-
-    const childDocumentNode = await mount(child);
-
-    if (isElement(childDocumentNode)) {
-      setAttributes(child, childDocumentNode);
-    }
-
-    if (child.options[EXPERIMENT_onAttached]) {
-      await child.options[EXPERIMENT_onAttached](childDocumentNode);
-    }
-
-    if (isElement(childDocumentNode)) {
-      const blocks = new Blocks();
-      if (child.children) {
-        for await (const children of child.children) {
-          await renderChildren(childDocumentNode, children, blocks, pointers, child, true);
-        }
-      }
-      reduceDocumentNodeSize(blocks, childDocumentNode, true);
-    }
-
-    async function mount(child: HydratedDOMNativeVNode): Promise<Element | Text> {
-      const index = blocks.getIndexer(pointer);
-      const previousLength = blocks.length(pointer);
-
-      // We previously took up one space, so we know that we should be able to match
-      if (previousLength === 1) {
-        const existingCheckIndex = index();
-        if (documentNode.childNodes.length > existingCheckIndex) {
-          const currentChildDocumentNode = documentNode.childNodes.item(existingCheckIndex);
-          if (isExpectedNode(child, currentChildDocumentNode)) {
-            // TODO currentChildDocumentNode.replaceData(child.source);
-            if (!isText(currentChildDocumentNode) || currentChildDocumentNode.textContent === child.source) {
-              blocks.set(pointer, 1);
-              return currentChildDocumentNode; // We're good to go, we statically know that we've got the correct value here
-            }
-          }
-        }
-      }
-
-      const childDocumentNode: Element | Text = await getDocumentNode(documentNode, child);
-
-      const previousChildrenLength = documentNode.childNodes.length;
-
-      // We can replace something existing
-      const currentIndex = index();
-
-      if (previousChildrenLength < currentIndex) {
-        throw new Error(`Expected ${currentIndex} child${currentIndex === 1 ? "" : "ren"}, found ${previousChildrenLength}`);
-      }
-
-      if (previousChildrenLength === currentIndex) {
-        documentNode.appendChild(childDocumentNode);
-        blocks.set(pointer, 1);
-        return childDocumentNode;
-      }
-
-      const previousChildDocumentNode = documentNode.childNodes.item(currentIndex);
-      let mountedChildDocumentNode: Element | Text | ChildNode = previousChildDocumentNode;
-
-      console.log(blocks.length(pointer));
-
-      if (blocks.length(pointer) === 0) {
-        // We never took up this space before, so lets create some room for us!
-        mountedChildDocumentNode = childDocumentNode;
-        documentNode.insertBefore(
-          childDocumentNode,
-          previousChildDocumentNode
-        );
-      } else {
-        // We can still abort, we never attached our DOM node
-        if (!isExpectedNode(child, previousChildDocumentNode) || (isText(previousChildDocumentNode) && previousChildDocumentNode.textContent !== child.source)) {
-          mountedChildDocumentNode = childDocumentNode;
-          console.log("Replacing", childDocumentNode, previousChildDocumentNode);
-          documentNode.replaceChild(
-            childDocumentNode,
-            previousChildDocumentNode
-          );
-        }
-
-        while (blocks.length(pointer) > 1 && mountedChildDocumentNode.nextSibling) {
-          documentNode.removeChild(mountedChildDocumentNode.nextSibling);
-          blocks.reduce(pointer, 1);
-        }
-      }
-
-      blocks.set(pointer, 1);
-
-      if (!(isElement(mountedChildDocumentNode) || isText(mountedChildDocumentNode))) {
-        throw new Error("Expected Text or Element node");
-      }
-
-      return mountedChildDocumentNode;
-    }
+    yield [child];
   }
 }
 
