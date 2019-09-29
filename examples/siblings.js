@@ -7,11 +7,27 @@ const context = {};
 const h = withContext(context);
 const html = htm.bind(h);
 
+async function *SiblingFinalInterval() {
+
+  let count = 0;
+  while (count < 3) {
+    yield html`
+      <h4 data-value=${count}>Final Interval ${count}</h4>
+    `;
+    await new Promise(resolve => setTimeout(resolve, 50));
+    count += 1;
+  }
+
+}
+
 async function *SiblingInterval() {
 
   let count = 0;
   while (count < 3) {
-    yield html`<span reference="a" data-value=${count}>Interval ${count}</span>`;
+    yield html`
+      <h3 data-value=${count}>Interval ${count}</h3>
+      ${h(SiblingFinalInterval)}
+    `;
     await new Promise(resolve => setTimeout(resolve, 50));
     count += 1;
   }
@@ -20,16 +36,17 @@ async function *SiblingInterval() {
 
 function Sibling() {
   return html`
-    <button ...${{}}>Sibling 2</button>
+    <h2 ...${{}}>Sibling 3</h2>
     ${h(SiblingInterval)}
+    <h5 ...${{}}>Sibling 4</h5>
   `;
 }
 
 const node = html`
   <main ...${{}}>
-    <p ...${{}}>Sibling 1</p>
+    <h1 ...${{}}>Sibling 1</h1>
     ${h(Sibling)}
-    <div ...${{}}>Sibling 3</div>
+    <h6 ...${{}}>Sibling 5</h6>
   </main>
 `;
 

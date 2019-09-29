@@ -54,11 +54,8 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
 
   try {
     for await (const child of children) {
-      const pointer = isFragmentVNode(child) && blocks.isFragment() ? undefined : pointers.get(child, parent);
-      if (pointer) {
-        // This gives us a stable index
-        blocks.getInfo(pointer);
-      }
+      const pointer = pointers.get(child, parent);
+      blocks.getInfo(pointer);
       childrenPromises.push(withChild(child, pointer));
     }
   } finally {
@@ -83,9 +80,10 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
   async function withChild(child: VNode, pointer: symbol): Promise<(Element | Text)[]> {
 
     if (isFragmentVNode(child)) {
-      const fragmentBlock = blocks.isFragment() ? blocks : blocks.fragment(pointer);
+      const fragmentBlock = blocks.fragment(pointer);
       for await (const children of child.children) {
         await renderChildren(documentNode, children, fragmentBlock, pointers, parent, false);
+        fragmentBlock.clear();
       }
       return;
     }
@@ -140,10 +138,6 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
       // We can replace something existing
       const currentIndex = index();
 
-      if (child.source === "span") {
-        console.log(blocks.length(pointer), blocks);
-      }
-
       if (previousChildrenLength < currentIndex) {
         throw new Error(`Expected ${currentIndex} child${currentIndex === 1 ? "" : "ren"}, found ${previousChildrenLength}`);
       }
@@ -157,6 +151,7 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
       const previousChildDocumentNode = documentNode.childNodes.item(currentIndex);
       let mountedChildDocumentNode: Element | Text | ChildNode = previousChildDocumentNode;
 
+      console.log(blocks.length(pointer));
 
       if (blocks.length(pointer) === 0) {
         // We never took up this space before, so lets create some room for us!
@@ -169,6 +164,7 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
         // We can still abort, we never attached our DOM node
         if (!isExpectedNode(child, previousChildDocumentNode) || (isText(previousChildDocumentNode) && previousChildDocumentNode.textContent !== child.source)) {
           mountedChildDocumentNode = childDocumentNode;
+          console.log("Replacing", childDocumentNode, previousChildDocumentNode);
           documentNode.replaceChild(
             childDocumentNode,
             previousChildDocumentNode

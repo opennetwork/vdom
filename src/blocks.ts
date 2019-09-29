@@ -190,11 +190,7 @@ export class Blocks {
 
   clear() {
     this.references = new Map();
-    this.lengths = [];
-    this.positions = [];
     this.finalPointer = undefined;
-    this.cachedLength = undefined;
-    this.cachedOccupation = undefined;
   }
 
 }
