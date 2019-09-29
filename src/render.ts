@@ -1,4 +1,4 @@
-import { isFragmentVNode, VNode } from "@opennetwork/vnode";
+import { Fragment, isFragmentVNode, VNode } from "@opennetwork/vnode";
 import { produce } from "./produce";
 import { asyncIterable, isPromise } from "iterable";
 import { HydratedDOMNativeVNode, DOMRoot, isHydratedDOMNativeVNode } from "./native";
@@ -9,10 +9,14 @@ import {
   EXPERIMENT_onAttached
 } from "./experiments";
 import { Blocks } from "./blocks";
+import { Pointers } from "./pointers";
 
 export async function render(initialNode: VNode, root: DOMRoot, atIndex: number = 0): Promise<void> {
+  const blocks = new Blocks(undefined, undefined, atIndex).fragment(Symbol());
+  const pointers = new Pointers();
+  const rootNode = { reference: Fragment };
   for await (const node of produce(initialNode)) {
-    await renderChildren(root, asyncIterable([node]), () => atIndex, undefined, () => true);
+    await renderChildren(root, asyncIterable([node]), blocks, pointers, rootNode, true);
   }
 }
 
@@ -44,16 +48,17 @@ function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): giv
   return expected.source === given.localName;
 }
 
-async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, getIndex: () => number, onSizeChange?: (value: number) => void, isOpen?: () => boolean): Promise<number> {
+async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIterable<VNode>, blocks: Blocks, pointers: Pointers, parent: VNode, isOpen: boolean = false): Promise<number> {
 
-  const blocks = new Blocks(getIndex, onSizeChange, isOpen);
   const childrenPromises: Promise<unknown>[] = [];
 
   try {
     for await (const child of children) {
-      const pointer = Symbol(`Child pointer - ${child.source}`);
-      // This gives us a stable index
-      blocks.getInfo(pointer);
+      const pointer = isFragmentVNode(child) && blocks.isFragment() ? undefined : pointers.get(child, parent);
+      if (pointer) {
+        // This gives us a stable index
+        blocks.getInfo(pointer);
+      }
       childrenPromises.push(withChild(child, pointer));
     }
   } finally {
@@ -64,9 +69,9 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
   // All children will have been mounted here, so we must remove any additional
   return reduceDocumentNodeSize(blocks, documentNode, isOpen);
 
-  function reduceDocumentNodeSize(blocks: Blocks, documentNode: Element | DOMRoot, isOpen: () => boolean): number {
+  function reduceDocumentNodeSize(blocks: Blocks, documentNode: Element | DOMRoot, isOpen: boolean): number {
     const expectedLength = blocks.size();
-    if (!isOpen || !isOpen()) {
+    if (!isOpen) {
       return expectedLength; // If we're not open, then we can't know if we can reduce in size
     }
     while (documentNode.childNodes.length > expectedLength) {
@@ -75,14 +80,12 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
     return expectedLength;
   }
 
-  async function withChild(child: VNode, pointer: symbol) {
+  async function withChild(child: VNode, pointer: symbol): Promise<(Element | Text)[]> {
 
     if (isFragmentVNode(child)) {
-      const index = blocks.getIndexer(pointer);
-      const setter = blocks.getSetter(pointer);
-      const isOpen = () => false;
+      const fragmentBlock = blocks.isFragment() ? blocks : blocks.fragment(pointer);
       for await (const children of child.children) {
-        await renderChildren(documentNode, children, index, setter, isOpen);
+        await renderChildren(documentNode, children, fragmentBlock, pointers, parent, false);
       }
       return;
     }
@@ -103,16 +106,12 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
 
     if (isElement(childDocumentNode)) {
       const blocks = new Blocks();
-      const isOpen = () => true;
-      const getIndex = () => 0;
-      const pointer = Symbol(`Element child pointer - ${child.source}`);
-      const onSizeChange = blocks.getSetter(pointer);
       if (child.children) {
         for await (const children of child.children) {
-          await renderChildren(childDocumentNode, children, getIndex, onSizeChange, isOpen);
+          await renderChildren(childDocumentNode, children, blocks, pointers, child, true);
         }
       }
-      reduceDocumentNodeSize(blocks, childDocumentNode, isOpen);
+      reduceDocumentNodeSize(blocks, childDocumentNode, true);
     }
 
     async function mount(child: HydratedDOMNativeVNode): Promise<Element | Text> {
@@ -141,6 +140,10 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
       // We can replace something existing
       const currentIndex = index();
 
+      if (child.source === "span") {
+        console.log(blocks.length(pointer), blocks);
+      }
+
       if (previousChildrenLength < currentIndex) {
         throw new Error(`Expected ${currentIndex} child${currentIndex === 1 ? "" : "ren"}, found ${previousChildrenLength}`);
       }
@@ -153,6 +156,7 @@ async function renderChildren(documentNode: Element | DOMRoot, children: AsyncIt
 
       const previousChildDocumentNode = documentNode.childNodes.item(currentIndex);
       let mountedChildDocumentNode: Element | Text | ChildNode = previousChildDocumentNode;
+
 
       if (blocks.length(pointer) === 0) {
         // We never took up this space before, so lets create some room for us!

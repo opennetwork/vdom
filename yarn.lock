@@ -28,10 +28,10 @@
   resolved "https://registry.npmjs.org/@opennetwork/vnode-hooks/-/vnode-hooks-3.0.0.tgz#6beeaab881473eeede6a4f01036bda6a7246b235"
   integrity sha512-fM1pA3AfvML0FFY/JtHe0LrO9CPZCSSZi/4lKJomit8qS/QiosQDJzhKBO5U6js36eszkXk7nQlCl+lB78fBAw==
 
-"@opennetwork/vnode@^14.0.0":
-  version "14.0.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-14.0.0.tgz#f52d3bb305c22306da26f8a4ed5a579b0c23929f"
-  integrity sha512-1HDspJ+qsRIekfnw7sketSHwWHDfH5NIpX59kZ2TmRA4vU3Hv5LjOGUx8QsWNHEn2z1Zi8CXYEpmAyceuy2Lqw==
+"@opennetwork/vnode@^14.1.0":
+  version "14.1.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-14.1.0.tgz#f800d9fb0fe28568944f5c677515e7d0c07b941c"
+  integrity sha512-FdGZhKTVUo8B2c2rHVR+t/RLpEJ+jxIvPYmNo3G69UOxKJWxK+VsKJwHw+t0DkWsFxt3aIQeGYmB9mm54zi2/w==
   dependencies:
     iterable "^5.2.2"
 

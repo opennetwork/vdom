@@ -8,30 +8,17 @@ const h = withContext(context);
 const html = htm.bind(h);
 
 async function *SiblingInterval() {
-
+  const ref = Symbol("My reference");
   let count = 0;
   while (count < 3) {
-    yield html`<span reference="a" data-value=${count}>Interval ${count}</span>`;
+    yield html`<span data-value=${count}>Interval ${count}</span>`;
     await new Promise(resolve => setTimeout(resolve, 50));
     count += 1;
   }
 
 }
 
-function Sibling() {
-  return html`
-    <button ...${{}}>Sibling 2</button>
-    ${h(SiblingInterval)}
-  `;
-}
-
-const node = html`
-  <main ...${{}}>
-    <p ...${{}}>Sibling 1</p>
-    ${h(Sibling)}
-    <div ...${{}}>Sibling 3</div>
-  </main>
-`;
+const node = h(SiblingInterval);
 
 const dom = new JSDOM.JSDOM();
 

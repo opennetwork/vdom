@@ -24,12 +24,15 @@ export class Blocks {
   private finalPointer: symbol;
   private positions: number[] = [];
   private lengths: number[] = [];
+  private fragments: Blocks[] = [];
 
   private cachedLength: number = 0;
-  private cachedOccupation: [number, number, boolean][] = undefined;
+  private cachedOccupation: [number, number][] = undefined;
 
-  constructor(private readonly getIndex?: () => number, private readonly onSizeChange?: (size: number) => void, private readonly isOpen?: () => boolean) {
-
+  constructor(private readonly parent?: Blocks, private readonly parentPointer?: symbol, private readonly atIndex: number = 0) {
+    if (this.parent && !this.parentPointer) {
+      throw new Error("Expected pointer when parent given");
+    }
   }
 
   getInfo(pointer: symbol): [number, number] {
@@ -39,13 +42,13 @@ export class Blocks {
     return [typeof position === "number" ? position : -1, Math.max(0, typeof length === "number" ? length : 0)];
   }
 
-  get(pointer: symbol): [number, number, boolean] {
+  get(pointer: symbol): [number, number] {
     const index = this.getInternalIndex(pointer);
 
     // We already know the space we're occupying
     //
     // But only if we don't change based on an external function
-    if (this.cachedOccupation && this.cachedOccupation[index] && !this.isOpen && !this.getIndex) {
+    if (this.cachedOccupation && this.cachedOccupation[index] && !this.parent) {
       return this.cachedOccupation[index];
     }
 
@@ -59,15 +62,12 @@ export class Blocks {
     // our block
     const previousIndexes = positioned.filter(index => this.positions[index] < position);
 
-    // If we're the last index, then we can do what we need
-    const isOpen = this.isOpen && this.isOpen() && !positioned.some(index => this.positions[index] > position);
-
     // Our index is the maximum length for positions before our own
-    const occupiedIndex = (this.getIndex ? this.getIndex() : 0) + sum(previousIndexes.map(index => this.lengths[index]));
+    const occupiedIndex = (typeof this.atIndex === "number" ? this.atIndex : 0) + (this.parent ? this.parent.index(this.parentPointer) : 0) + sum(previousIndexes.map(index => this.lengths[index]));
 
-    const occupation: [number, number, boolean] = [occupiedIndex, occupiedIndex + length, isOpen];
+    const occupation: [number, number] = [occupiedIndex, occupiedIndex + length];
 
-    if (!this.isOpen && !this.getIndex) {
+    if (!this.parent) {
       this.cachedOccupation = this.cachedOccupation || [];
       this.cachedOccupation[index] = occupation;
     }
@@ -107,10 +107,6 @@ export class Blocks {
     return nextLength => this.set(pointer, nextLength);
   }
 
-  getOpener(pointer: symbol): () => boolean {
-    return () => this.get(pointer)[2];
-  }
-
   move(pointer: symbol, nextPosition: number, nextLength: number) {
     const index = this.getInternalIndex(pointer);
     const currentPosition = this.positions[index];
@@ -129,8 +125,8 @@ export class Blocks {
       this.lengths[index] = nextLength;
       this.cachedLength = this.cachedLength + (nextLength - currentLength);
       // Only on size change we will notify externally, as only changed space changes what externally we care about
-      if (this.onSizeChange) {
-        this.onSizeChange(this.cachedLength);
+      if (this.parent) {
+        this.parent.set(this.parentPointer, this.cachedLength);
       }
     }
   }
@@ -140,6 +136,14 @@ export class Blocks {
       return this.cachedLength;
     }
     return this.cachedLength = sum(this.lengths);
+  }
+
+  givenSize() {
+    if (this.parent) {
+      return this.parent.length(this.parentPointer);
+    } else {
+      return this.size();
+    }
   }
 
   private getInternalIndex(pointer: symbol): number {
@@ -166,6 +170,31 @@ export class Blocks {
     this.positions[index] = Math.max(...this.positions.filter(value => typeof value === "number")) + 1;
     this.finalPointer = pointer;
     return index;
+  }
+
+  fragment(pointer: symbol): Blocks {
+    const index = this.getInternalIndex(pointer);
+    if (this.fragments[index]) {
+      return this.fragments[index];
+    }
+    this.fragments[index] = new Blocks(
+      this,
+      pointer
+    );
+    return this.fragments[index];
+  }
+
+  isFragment() {
+    return !!this.parent;
+  }
+
+  clear() {
+    this.references = new Map();
+    this.lengths = [];
+    this.positions = [];
+    this.finalPointer = undefined;
+    this.cachedLength = undefined;
+    this.cachedOccupation = undefined;
   }
 
 }

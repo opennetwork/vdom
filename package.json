@@ -25,7 +25,7 @@
     "url": "https://github.com/opennetwork/vdom.git"
   },
   "devDependencies": {
-    "@opennetwork/vnode": "^14.0.0",
+    "@opennetwork/vnode": "^14.1.0",
     "@opennetwork/vnode-fragment": "^3.0.0",
     "@opennetwork/vnode-hooks": "^3.0.0",
     "@types/jsdom": "^12.2.4",
