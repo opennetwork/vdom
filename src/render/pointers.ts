@@ -1,33 +1,34 @@
 // For each node we want to know a static pointer we can use for referencing its location in blocks
-import { isFragmentVNode, VNode } from "@opennetwork/vnode";
+import { VNode } from "@opennetwork/vnode";
 
 export class Pointers {
 
-  private map = new WeakMap<VNode, Map<VNode, symbol>>();
+  private currentPointers = new WeakMap<VNode, symbol[]>();
+  private availablePointers = new WeakMap<VNode, symbol[]>();
 
-  get(node: VNode, parent: VNode): symbol {
-    let reference = node.reference;
-    if (typeof reference === "symbol" && !isFragmentVNode(node)) {
-      return reference; // We will always just use their symbol
-    }
-    const map = this.getParent(parent);
-    reference = map.get(node);
-    if (reference) {
-      return reference;
-    }
-    reference = Symbol(`Pointer - ${String(node.reference)}`);
-    map.set(node, reference);
-    return reference;
+  get(parent: VNode): symbol {
+    const currentPointers = this.currentPointers.get(parent) || [];
+    const availablePointers = this.availablePointers.get(parent) || [];
+
+    const pointer = availablePointers[currentPointers.length] ? availablePointers[currentPointers.length] : Symbol("Pointer");
+
+    availablePointers[currentPointers.length] = pointer;
+    currentPointers.push(pointer);
+
+    this.currentPointers.set(parent, currentPointers);
+    this.availablePointers.set(parent, availablePointers);
+
+    return pointer;
   }
 
-  private getParent(parent: VNode) {
-    let map = this.map.get(parent);
-    if (map) {
-      return map;
-    }
-    map = new Map<VNode, symbol>();
-    this.map.set(parent, map);
-    return map;
+  reset(parent: VNode): void {
+    this.currentPointers.delete(parent);
+  }
+
+  remaining(parent: VNode): symbol[] {
+    const currentPointers = this.currentPointers.get(parent) || [];
+    const availablePointers = this.availablePointers.get(parent) || [];
+    return availablePointers.filter(pointer => !currentPointers.includes(pointer));
   }
 
 }

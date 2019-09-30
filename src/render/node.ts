@@ -34,10 +34,6 @@ export async function mountNode(options: NodeOptions, childrenFragment: Fragment
   const documentNode = await getSuitableDocumentNode(options);
   await mount(options, documentNode);
 
-  if (options.node.source === "2") {
-    debugger;
-  }
-
   if (isElement(documentNode)) {
     await setAttributes(options.node, documentNode);
   } else if (isText(documentNode)) {

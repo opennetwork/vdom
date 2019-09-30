@@ -38,12 +38,12 @@ export async function render(initialNode: VNode, root: DOMRoot, index: number = 
   const promises: Promise<unknown>[] = [],
     promisesToHandle = source();
 
-  let fragmentId = 0;
-
   promisesToHandle.hold();
 
+  const getFragmentPromise = withFragment(blocks, node, pointers.get(initialNode));
+
   await Promise.all([
-    withFragment(blocks, node, pointers.get(node, initialNode)).then(() => {
+    getFragmentPromise().then(() => {
       // Nothing more will be produced
       promisesToHandle.close();
     }),
@@ -56,9 +56,10 @@ export async function render(initialNode: VNode, root: DOMRoot, index: number = 
     root.removeChild(root.lastChild);
   }
 
-  async function withChildren(blocks: Blocks, children: AsyncIterable<VNode>, parent: VNode) {
+  async function withChildren(blocks: Blocks, children: AsyncIterable<VNode>, parent: VNode): Promise<() => Promise<unknown>> {
     const childrenSource = source(children);
 
+    const ourPromises: Promise<unknown>[] = [];
     const completionPromise = loadChildren();
     completionPromise.catch(() => {
       // Close off source if we run into an issue
@@ -66,50 +67,58 @@ export async function render(initialNode: VNode, root: DOMRoot, index: number = 
     });
     await completionPromise;
 
+    return () => Promise.all(ourPromises);
+
     async function loadChildren() {
       for await (const child of children) {
-        const pointer = pointers.get(child, parent);
-        await withChild(blocks, pointer, child);
+        const pointer = pointers.get(parent);
+        const getPromise = withChild(blocks, pointer, child);
+        ourPromises.push(getPromise());
       }
       // We won't be loading any more promises
-      promisesToHandle.close();
       await Promise.all(promises);
     }
   }
 
-  async function withChild(blocks: Blocks, pointer: symbol, child: VNode) {
+  function withChild(blocks: Blocks, pointer: symbol, child: VNode): () => Promise<unknown> {
     if (isFragmentVNode(child)) {
       return withFragment(blocks, child, pointer);
     }
     if (!isHydratedDOMNativeVNode(child)) {
-      return;
+      return () => Promise.resolve();
     }
-    const promise = mountNode(
-      {
-        pointer,
-        node: child,
-        parent: root,
-        fragment: blocks
-      },
-      {
-        reference: Fragment,
-        children: child.children
-      }
-    );
-    promises.push(promise);
-    // Push to our async loop once we've stored sync in our array
-    promisesToHandle.push(promise);
-    removePromiseOnceComplete(promise);
+    return async () => {
+      const promise = mountNode(
+        {
+          pointer,
+          node: child,
+          parent: root,
+          fragment: blocks
+        },
+        {
+          reference: Fragment,
+          children: child.children
+        }
+      );
+      promises.push(promise);
+      // Push to our async loop once we've stored sync in our array
+      promisesToHandle.push(promise);
+      removePromiseOnceComplete(promise);
+      return promise;
+    };
   }
 
-  async function withFragment(blocks: Blocks, fragment: FragmentVNode, pointer: symbol) {
-    const id = fragmentId += 1;
+  function withFragment(blocks: Blocks, fragment: FragmentVNode, pointer: symbol): () => Promise<unknown> {
     const fragmentBlock = blocks.fragment(pointer);
-    for await (const children of fragment.children) {
-      console.log(id, { children });
-      await withChildren(fragmentBlock, children, fragment);
-      fragmentBlock.clearFragments();
-    }
+    return async () => {
+      for await (const children of fragment.children) {
+        const getPromise = await withChildren(fragmentBlock, children, fragment);
+        // Completely wait for our children to render before getting the next update
+        await getPromise();
+        fragmentBlock.clearFragments();
+        pointers.reset(fragment);
+      }
+    };
   }
 
   function removePromiseOnceComplete(promise: Promise<unknown>) {
