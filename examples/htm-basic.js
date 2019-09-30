@@ -8,9 +8,9 @@ const h = withContext(context);
 const html = htm.bind(h);
 
 const node = html`
-  <main ...${{}}>
-    <p ...${{}}>Content 1</p>
-    <p ...${{}}>Content 2</p>
+  <main ...${{ reference: "main" }}>
+    <p ...${{ reference: "p1" }}>Content 1</p>
+    <p ...${{ reference: "p2" }}>Content 2</p>
   </main>
 `;
 

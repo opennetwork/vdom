@@ -20,6 +20,7 @@ function sum(values: (number | undefined)[]): number {
 
 export class Blocks {
 
+  private previousReferences: Map<symbol, number>;
   private references = new Map<symbol, number>();
   private finalPointer: symbol;
   private positions: number[] = [];
@@ -29,7 +30,7 @@ export class Blocks {
   private cachedLength: number = 0;
   private cachedOccupation: [number, number][] = undefined;
 
-  constructor(private readonly parent?: Blocks, private readonly parentPointer?: symbol, private readonly atIndex: number = 0) {
+  constructor(private readonly parent?: Blocks, private readonly parentPointer?: symbol, private readonly atIndex?: (() => number), public readonly replacing?: Blocks) {
     if (this.parent && !this.parentPointer) {
       throw new Error("Expected pointer when parent given");
     }
@@ -48,7 +49,7 @@ export class Blocks {
     // We already know the space we're occupying
     //
     // But only if we don't change based on an external function
-    if (this.cachedOccupation && this.cachedOccupation[index] && !this.parent) {
+    if (this.cachedOccupation && this.cachedOccupation[index] && !this.parent && !this.atIndex) {
       return this.cachedOccupation[index];
     }
 
@@ -63,11 +64,11 @@ export class Blocks {
     const previousIndexes = positioned.filter(index => this.positions[index] < position);
 
     // Our index is the maximum length for positions before our own
-    const occupiedIndex = (typeof this.atIndex === "number" ? this.atIndex : 0) + (this.parent ? this.parent.index(this.parentPointer) : 0) + sum(previousIndexes.map(index => this.lengths[index]));
+    const occupiedIndex = (this.atIndex ? this.atIndex() : 0) + (this.parent ? this.parent.index(this.parentPointer) : 0) + sum(previousIndexes.map(index => this.lengths[index]));
 
-    const occupation: [number, number] = [occupiedIndex, occupiedIndex + length];
+    const occupation: [number, number] = [occupiedIndex, length];
 
-    if (!this.parent) {
+    if (!this.parent && !this.atIndex) {
       this.cachedOccupation = this.cachedOccupation || [];
       this.cachedOccupation[index] = occupation;
     }
@@ -138,6 +139,14 @@ export class Blocks {
     return this.cachedLength = sum(this.lengths);
   }
 
+  parentSize(): number {
+    if (this.parent) {
+      return this.parent.parentSize();
+    } else {
+      return this.size();
+    }
+  }
+
   givenSize() {
     if (this.parent) {
       return this.parent.length(this.parentPointer);
@@ -172,25 +181,26 @@ export class Blocks {
     return index;
   }
 
-  fragment(pointer: symbol): Blocks {
+  fragment(pointer: symbol, replacing?: Blocks): Blocks {
     const index = this.getInternalIndex(pointer);
     if (this.fragments[index]) {
       return this.fragments[index];
     }
     this.fragments[index] = new Blocks(
       this,
-      pointer
+      pointer,
+      undefined,
+      replacing
     );
     return this.fragments[index];
   }
 
-  isFragment() {
-    return !!this.parent;
+  has(pointer: symbol) {
+    return this.references.has(pointer);
   }
 
-  clear() {
-    this.references = new Map();
-    this.finalPointer = undefined;
+  clearFragments() {
+    this.fragments = [];
   }
 
 }

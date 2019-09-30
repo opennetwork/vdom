@@ -80,15 +80,15 @@ export function isDOMNativeVNode(node: VNode): node is DOMNativeVNode {
     ) &&
     (
       !node.options.whenDefined ||
-      typeof node.options.whenDefined === "boolean"
+      isWhenDefined(node.options)
     ) &&
     (
       !node.options.is ||
-      typeof node.options.is === "string"
+      isIsOptions(node.options)
     ) &&
     (
       !node.options.namespace ||
-      typeof node.options.namespace === "string"
+      isNamespace(node.options)
     )
   );
 }

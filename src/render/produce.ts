@@ -5,22 +5,22 @@ import {
   isDOMNativeVNode,
   isNativeCompatible,
   native
-} from "./native";
+} from "../native";
 import {
   asyncExtendedIterable
 } from "iterable";
 import { Fragment, FragmentVNode } from "@opennetwork/vnode";
 
-export async function *produce(node: VNode): AsyncIterable<FragmentVNode | HydratedDOMNativeVNode> {
+export function produce(node: VNode): FragmentVNode | HydratedDOMNativeVNode {
   if (isDOMNativeVNode(node)) {
-    yield getHydratedDOMNativeVNode({
+    return getHydratedDOMNativeVNode({
       ...node,
       children: produceChildren(node)
     });
   } else if (isNativeCompatible(node)) {
-    yield* produce(native(undefined, node));
+    return produce(native(undefined, node));
   } else {
-    yield {
+    return {
       reference: Fragment,
       children: produceChildren(node)
     };
@@ -29,7 +29,7 @@ export async function *produce(node: VNode): AsyncIterable<FragmentVNode | Hydra
 
 async function *produceChildren(node: VNode): AsyncIterable<AsyncIterable<FragmentVNode | HydratedDOMNativeVNode>> {
   for await (const children of node.children) {
-    yield asyncExtendedIterable(children).flatMap(child => produce(child));
+    yield asyncExtendedIterable(children).map(child => produce(child));
   }
 }
 

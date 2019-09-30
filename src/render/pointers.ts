@@ -1,6 +1,5 @@
 // For each node we want to know a static pointer we can use for referencing its location in blocks
 import { isFragmentVNode, VNode } from "@opennetwork/vnode";
-import { extendedIterable } from "iterable";
 
 export class Pointers {
 
@@ -16,7 +15,7 @@ export class Pointers {
     if (reference) {
       return reference;
     }
-    reference = Symbol();
+    reference = Symbol(`Pointer - ${String(node.reference)}`);
     map.set(node, reference);
     return reference;
   }
