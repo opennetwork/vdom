@@ -18,6 +18,11 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
+"@opennetwork/progressive-merge@^2.1.0":
+  version "2.1.0"
+  resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-2.1.0.tgz#694a141fa7c52d785382c50c2a14371d7d4bd62a"
+  integrity sha512-9yuaT/4esUW0Y8VbJ+K4CBIYUM5DFJrK1oMfKbSQPHfuBYWuvV09wiqE0goCD7DsN2480CFx7K9O76+IpaaxOw==
+
 "@opennetwork/vnode-fragment@^3.0.0":
   version "3.0.0"
   resolved "https://registry.npmjs.org/@opennetwork/vnode-fragment/-/vnode-fragment-3.0.0.tgz#4d264cb5a08556fe08585449b07d1ae0b3b8942d"
