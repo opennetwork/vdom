@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@opennetwork/progressive-merge": "^2.1.0",
+    "@opennetwork/vgraph": "^1.2.0",
     "htm": "^2.2.1"
   },
   "repository": {

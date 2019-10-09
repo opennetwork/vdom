@@ -1,3 +1,3 @@
-export { render } from "./render";
+export { render } from "./slice-render";
 export * from "./experiments";
 export * from "./native";
