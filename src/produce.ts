@@ -5,7 +5,7 @@ import {
   isDOMNativeVNode,
   isNativeCompatible,
   native
-} from "../native";
+} from "./native";
 import {
   asyncExtendedIterable
 } from "iterable";

@@ -28,10 +28,10 @@
   resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-2.2.0.tgz#93ffc862cbc79645970f14b4b65be151db2447b8"
   integrity sha512-gPoLYoVVR0v/LaiezwmJp8Rtilli6JlAJbZV+8k7RXSnGKKzyNQnV8FEx8941k3LaZ1CKym73ytS4lmSFy1lEA==
 
-"@opennetwork/vgraph@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vgraph/-/vgraph-1.2.0.tgz#c81330ff37292dd844c2803786f8e78dda9ac2ae"
-  integrity sha512-FO30DAdpGsF67beulUR1NbgGzXxW4mBt7Ae54lBRW92AT3Gpm7b0lMGHx+vJmHz6Ccz150jbRE8a3a2J+kHCvw==
+"@opennetwork/vgraph@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vgraph/-/vgraph-2.0.0.tgz#7afe4337f63d9cd11057117a23aa5a328d4f8ead"
+  integrity sha512-mmNWRuJMIUnsV7pAQWz0mc1jx4EZa8caqmR53Z8PIlgQt2Tc0ydLde02H5n2PfXIS7MeAMkFVwQb/jRbxyN/SA==
   dependencies:
     "@opennetwork/progressive-merge" "^2.2.0"
     "@opennetwork/vnode" "^14.2.0"
