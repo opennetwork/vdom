@@ -18,7 +18,7 @@ async function *SiblingFinalInterval() {
     await new Promise(resolve => setTimeout(resolve, 50));
     count += 1;
   }
-
+  console.log("Completed final interval");
 }
 
 async function *SiblingInterval() {
@@ -27,12 +27,13 @@ async function *SiblingInterval() {
   while (count < 3) {
     yield html`
       <span data-value=${count} reference="interval">Interval ${count}</span>
-      <!--${h(SiblingFinalInterval)}-->
+      <span data-value=${count} reference="interval2">Interval ${count}</span>
+      ${h(SiblingFinalInterval)}
     `;
     await new Promise(resolve => setTimeout(resolve, 50));
     count += 1;
   }
-  console.log("Completed interval");
+  console.log("Completed interval 1");
 
 }
 
@@ -61,6 +62,12 @@ litRender(
     console.log("Complete");
     console.log(dom.serialize());
   })
-  .catch(error => console.error(error));
+  .catch(error => {
+    clean(dom.window.document.body);
+    console.log("Error");
+    console.log(dom.serialize());
+    console.log(error);
+    console.error(JSON.stringify(error, null, "  "));
+  });
 
 

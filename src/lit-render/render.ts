@@ -9,13 +9,48 @@ import { getDocumentNode, isElement } from "../document-node";
 import { setAttributes } from "../attributes";
 import { EXPERIMENT_onBeforeRender } from "../experiments";
 
+interface WithPromiseContext {
+  context: PromiseContext;
+  within: PromiseContext[];
+  originalError: unknown;
+}
+
+function isWithPromiseContext(value: unknown): value is WithPromiseContext {
+  function isWithPromiseContextLike(value: unknown): value is Partial<WithPromiseContext> {
+    return !!value;
+  }
+  return !!(
+    isWithPromiseContextLike(value) &&
+    value.context &&
+    Array.isArray(value.within)
+  );
+}
+
+interface PromiseContext {
+  node?: VNode;
+  from?: string;
+}
+
 class AsyncContext {
   private promises: Promise<unknown>[] = [];
 
-  pushPromise(promise: Promise<unknown>) {
-    this.promises.push(promise);
+  pushPromise(promise: Promise<unknown>, context?: PromiseContext) {
+    const newPromise = !context ? promise : promise.catch(error => {
+      if (isWithPromiseContext(error)) {
+        // Re-throw, it has the original info
+        error.within.push(context);
+        throw error;
+      }
+      const newError: Error & Partial<WithPromiseContext> = new Error(error);
+      newError.context = context;
+      newError.originalError = error;
+      newError.within = [];
+      throw newError;
+    });
+
+    this.promises.push(newPromise);
     // Catch unhandled errors, we _will_ grab these
-    promise.catch(() => {});
+    newPromise.catch(() => {});
   }
 
   async flush(): Promise<void> {
@@ -49,24 +84,32 @@ export async function litRender(initialNode: VNode, container: Element) {
 interface DocumentNodeMap extends WeakMap<VNode, Element | Text> { }
 
 function fragment(container: Element, produced: FragmentVNode, asyncContext: AsyncContext, documentNodes: DocumentNodeMap): object {
-  return wrapAsyncDirective(asyncReplace, asyncContext)(
-    asyncExtendedIterable(produced.children).map(
-      children => wrapAsyncDirective(asyncAppend, asyncContext)(
-        children,
-        child => {
-          if (!isVNode(child)) {
-            return nothing;
+  let previousPromise: Promise<unknown> = undefined;
+  return wrapAsyncDirective(asyncReplace, asyncContext, undefined, { node: produced, from: "asyncReplace" })(
+    asyncExtendedIterable(produced.children)
+      .map(
+        async children => {
+          if (previousPromise) {
+            await previousPromise;
+            previousPromise = undefined;
           }
-          if (isFragmentVNode(child)) {
-            return fragment(container, child, asyncContext, documentNodes);
-          } else if (isHydratedDOMNativeVNode(child)) {
-            return node(container, child, asyncContext, documentNodes);
-          } else {
-            return nothing;
-          }
+          return wrapAsyncDirective(asyncAppend, asyncContext, nextPromise => previousPromise = nextPromise, { node: produced, from: "asyncAppend" })(
+            children,
+            child => {
+              if (!isVNode(child)) {
+                return nothing;
+              }
+              if (isFragmentVNode(child)) {
+                return fragment(container, child, asyncContext, documentNodes);
+              } else if (isHydratedDOMNativeVNode(child)) {
+                return node(container, child, asyncContext, documentNodes);
+              } else {
+                return nothing;
+              }
+            }
+          );
         }
       )
-    )
   );
 }
 
@@ -101,7 +144,7 @@ function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext
     context.pushPromise(litRender(
       { reference: Fragment, children: node.children },
       documentNode
-    ));
+    ), { node, from: "child render" });
   }
 
   async function getNode() {
@@ -118,7 +161,7 @@ function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext
   }
 }
 
-function wrapAsyncDirective<Args extends any[]>(fn: (...args: Args) => (part: Part) => unknown, context: AsyncContext) {
+function wrapAsyncDirective<Args extends any[]>(fn: (...args: Args) => (part: Part) => unknown, context: AsyncContext, onPromise?: (promise: Promise<unknown>) => void, promiseContext?: PromiseContext) {
   return directive(
     (...args: Args) => {
       const nextFn = fn(...args);
@@ -127,7 +170,10 @@ function wrapAsyncDirective<Args extends any[]>(fn: (...args: Args) => (part: Pa
         part.setValue(noChange);
         const result = nextFn(part);
         if (isPromise(result)) {
-          context.pushPromise(result);
+          context.pushPromise(result, promiseContext);
+          if (onPromise) {
+            onPromise(result);
+          }
         }
         return result;
       };

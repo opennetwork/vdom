@@ -27,6 +27,12 @@ litRender(
     console.log("Complete");
     console.log(dom.serialize());
   })
-  .catch(error => console.error(error));
+  .catch(error => {
+    clean(dom.window.document.body);
+    console.log("Error");
+    console.log(dom.serialize());
+    console.log(error);
+    console.error(JSON.stringify(error, null, "  "));
+  });
 
 
