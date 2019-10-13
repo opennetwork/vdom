@@ -1,9 +1,8 @@
 import { Fragment, FragmentVNode, isFragmentVNode, isVNode, VNode } from "@opennetwork/vnode";
-import { directive, noChange, nothing, Part, render } from "lit-html";
+import { directive, noChange, nothing, Part, render, NodePart } from "lit-html";
 import { produce } from "../produce";
 import { HydratedDOMNativeVNode, isHydratedDOMNativeVNode } from "../native";
 import { asyncExtendedIterable, isPromise } from "iterable";
-import { asyncReplace } from "lit-html/directives/async-replace";
 import { asyncAppend } from "lit-html/directives/async-append";
 import { getDocumentNode, isElement } from "../document-node";
 import { setAttributes } from "../attributes";
@@ -85,31 +84,30 @@ interface DocumentNodeMap extends WeakMap<VNode, Element | Text> { }
 
 function fragment(container: Element, produced: FragmentVNode, asyncContext: AsyncContext, documentNodes: DocumentNodeMap): object {
   let previousPromise: Promise<unknown> = undefined;
-  return wrapAsyncDirective(asyncReplace, asyncContext, undefined, { node: produced, from: "asyncReplace" })(
-    asyncExtendedIterable(produced.children)
-      .map(
-        async children => {
-          if (previousPromise) {
-            await previousPromise;
-            previousPromise = undefined;
+  return asyncReplace(
+    produced.children,
+    async (children: AsyncIterable<VNode>, index, asyncContext) => {
+      if (previousPromise) {
+        await previousPromise;
+        previousPromise = undefined;
+      }
+      return wrapAsyncDirective(asyncAppend, asyncContext, nextPromise => previousPromise = nextPromise, { node: produced, from: "asyncAppend" })(
+        children,
+        child => {
+          if (!isVNode(child)) {
+            return nothing;
           }
-          return wrapAsyncDirective(asyncAppend, asyncContext, nextPromise => previousPromise = nextPromise, { node: produced, from: "asyncAppend" })(
-            children,
-            child => {
-              if (!isVNode(child)) {
-                return nothing;
-              }
-              if (isFragmentVNode(child)) {
-                return fragment(container, child, asyncContext, documentNodes);
-              } else if (isHydratedDOMNativeVNode(child)) {
-                return node(container, child, asyncContext, documentNodes);
-              } else {
-                return nothing;
-              }
-            }
-          );
+          if (isFragmentVNode(child)) {
+            return fragment(container, child, asyncContext, documentNodes);
+          } else if (isHydratedDOMNativeVNode(child)) {
+            return node(container, child, asyncContext, documentNodes);
+          } else {
+            return nothing;
+          }
         }
-      )
+      );
+    },
+    asyncContext
   );
 }
 
@@ -180,3 +178,58 @@ function wrapAsyncDirective<Args extends any[]>(fn: (...args: Args) => (part: Pa
     }
   );
 }
+
+// This is a near clone of https://github.com/Polymer/lit-html/blob/master/src/directives/async-replace.ts
+// However we want to both collect promises, and flush promises after each commit
+const asyncReplace = directive(
+  <T>(value: AsyncIterable<T>, mapper: (v: T, index: number, context: AsyncContext) => unknown, givenContext: AsyncContext) => (part: Part) => {
+    givenContext.pushPromise(run());
+
+    async function run() {
+      if (!(part instanceof NodePart)) {
+        throw new Error("asyncReplace can only be used in text bindings");
+      }
+
+      // If we've already set up this particular iterable, we don't need
+      // to do anything.
+      if (value === part.value) {
+        return;
+      }
+
+      const context = new AsyncContext();
+
+      // We nest a new part to keep track of previous item values separately
+      // of the iterable as a value itself.
+      const itemPart = new NodePart(part.options);
+      part.value = value;
+
+      let i = 0;
+
+      for await (let v of value) {
+        // Check to make sure that value is the still the current value of
+        // the part, and if not bail because a new value owns this part
+        if (part.value !== value) {
+          break;
+        }
+
+        // When we get the first value, clear the part. This let's the
+        // previous value display until we can replace it.
+        if (i === 0) {
+          part.clear();
+          itemPart.appendIntoPart(part);
+        }
+
+        if (mapper !== undefined) {
+          v = await mapper(v, i, context) as T;
+        }
+
+        itemPart.setValue(v);
+        itemPart.commit();
+        i++;
+
+        // Wait for this context to be ready for the next render
+        await context.flush();
+      }
+    }
+  }
+);

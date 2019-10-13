@@ -33,7 +33,7 @@ async function *SiblingInterval() {
     await new Promise(resolve => setTimeout(resolve, 50));
     count += 1;
   }
-  console.log("Completed interval 1");
+  console.log("Completed interval");
 
 }
 
