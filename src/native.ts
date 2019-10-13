@@ -8,26 +8,22 @@ import {
 } from "@opennetwork/vnode";
 import { asyncExtendedIterable } from "iterable";
 import {
-  EXPERIMENT_onAttached,
-  EXPERIMENT_getDocumentNode,
-  EXPERIMENT_attributeMode,
-  EXPERIMENT_attributes
+  EXPERIMENT_onBeforeRender,
+  EXPERIMENT_attributes,
+  EXPERIMENT_getDocumentNode
 } from "./experiments";
 
-export type DOMRoot = Node & ParentNode;
 export type DOMNativeVNodeType = "Element" | "Text";
 export type DOMNativeVNodeInstance = Element | Text;
 
 export interface DOMNativeVNodeOptions<Type extends DOMNativeVNodeType = DOMNativeVNodeType, Instance extends DOMNativeVNodeInstance = DOMNativeVNodeInstance> {
   type: DOMNativeVNodeType;
-  namespace?: string;
-  whenDefined?: boolean;
   is?: string;
-  instance?: DOMNativeVNodeInstance;
-  [EXPERIMENT_onAttached]?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  [EXPERIMENT_getDocumentNode]?: (root: DOMRoot, node: DOMNativeVNode<Type, Instance>) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>;
-  [EXPERIMENT_attributeMode]?: "set" | "remove" | "exact";
-  [EXPERIMENT_attributes]?: Record<string, string> | string[];
+  instance?: Element | Text;
+  whenDefined?: boolean;
+  [EXPERIMENT_onBeforeRender]?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+  [EXPERIMENT_getDocumentNode]?: (root: Element, node: HydratedDOMNativeVNode) => Element | Text | Promise<Element | Text>;
+  [EXPERIMENT_attributes]?: Record<string, string>;
 }
 
 export interface DOMNativeVNode<Type extends DOMNativeVNodeType = DOMNativeVNodeType, Instance extends DOMNativeVNodeInstance = DOMNativeVNodeInstance> extends NativeVNode {
@@ -79,16 +75,8 @@ export function isDOMNativeVNode(node: VNode): node is DOMNativeVNode {
       node.options.type === "Text"
     ) &&
     (
-      !node.options.whenDefined ||
-      isWhenDefined(node.options)
-    ) &&
-    (
       !node.options.is ||
       isIsOptions(node.options)
-    ) &&
-    (
-      !node.options.namespace ||
-      isNamespace(node.options)
     )
   );
 }
@@ -122,9 +110,7 @@ function getNativeOptions(vnode: VNode): DOMNativeVNode["options"] {
   return {
     ...vnode.options,
     type: "Element",
-    whenDefined: isWhenDefined(vnode.options),
-    is: isIsOptions(vnode.options) ? vnode.options.is : undefined,
-    namespace: isNamespace(vnode.options) ? vnode.options.namespace : undefined
+    is: isIsOptions(vnode.options) ? vnode.options.is : undefined
   };
 }
 
@@ -142,26 +128,6 @@ export function native(options: unknown, children: VNode): VNode {
       children: asyncExtendedIterable(children.children).retain()
     };
   }
-}
-
-function isWhenDefined(options: unknown): options is { whenDefined: true } {
-  function isWhenDefinedLike(options: unknown): options is { whenDefined?: unknown } {
-    return !!options;
-  }
-  return (
-    isWhenDefinedLike(options) &&
-    options.whenDefined === true
-  );
-}
-
-function isNamespace(options: unknown): options is { namespace: string } {
-  function isNamespaceLike(options: unknown): options is { namespace?: unknown } {
-    return !!options;
-  }
-  return (
-    isNamespaceLike(options) &&
-    typeof options.namespace === "string"
-  );
 }
 
 function isIsOptions(options: unknown): options is { is: string } {

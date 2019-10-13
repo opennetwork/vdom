@@ -18,25 +18,6 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
-"@opennetwork/progressive-merge@^2.1.0":
-  version "2.1.0"
-  resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-2.1.0.tgz#694a141fa7c52d785382c50c2a14371d7d4bd62a"
-  integrity sha512-9yuaT/4esUW0Y8VbJ+K4CBIYUM5DFJrK1oMfKbSQPHfuBYWuvV09wiqE0goCD7DsN2480CFx7K9O76+IpaaxOw==
-
-"@opennetwork/progressive-merge@^2.2.0":
-  version "2.2.0"
-  resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-2.2.0.tgz#93ffc862cbc79645970f14b4b65be151db2447b8"
-  integrity sha512-gPoLYoVVR0v/LaiezwmJp8Rtilli6JlAJbZV+8k7RXSnGKKzyNQnV8FEx8941k3LaZ1CKym73ytS4lmSFy1lEA==
-
-"@opennetwork/vgraph@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vgraph/-/vgraph-2.0.0.tgz#7afe4337f63d9cd11057117a23aa5a328d4f8ead"
-  integrity sha512-mmNWRuJMIUnsV7pAQWz0mc1jx4EZa8caqmR53Z8PIlgQt2Tc0ydLde02H5n2PfXIS7MeAMkFVwQb/jRbxyN/SA==
-  dependencies:
-    "@opennetwork/progressive-merge" "^2.2.0"
-    "@opennetwork/vnode" "^14.2.0"
-    iterable "^5.6.0"
-
 "@opennetwork/vnode-fragment@^3.0.0":
   version "3.0.0"
   resolved "https://registry.npmjs.org/@opennetwork/vnode-fragment/-/vnode-fragment-3.0.0.tgz#4d264cb5a08556fe08585449b07d1ae0b3b8942d"
@@ -51,13 +32,6 @@
   version "14.1.0"
   resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-14.1.0.tgz#f800d9fb0fe28568944f5c677515e7d0c07b941c"
   integrity sha512-FdGZhKTVUo8B2c2rHVR+t/RLpEJ+jxIvPYmNo3G69UOxKJWxK+VsKJwHw+t0DkWsFxt3aIQeGYmB9mm54zi2/w==
-  dependencies:
-    iterable "^5.2.2"
-
-"@opennetwork/vnode@^14.2.0":
-  version "14.2.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-14.2.0.tgz#c3e2e291cb89095600144f960508a88d2eb6c3e9"
-  integrity sha512-OKV8fS0GSwSrB2EpR9mnEDZXH9gi5j9V9R1myvTJhP9+jPSxxxUA8AB1H74TCus1ayZl1458LBO7o/9yiTGlPg==
   dependencies:
     iterable "^5.2.2"
 
@@ -612,6 +586,11 @@ levn@~0.3.0:
   dependencies:
     prelude-ls "~1.1.2"
     type-check "~0.3.2"
+
+lit-html@^1.1.2:
+  version "1.1.2"
+  resolved "https://registry.npmjs.org/lit-html/-/lit-html-1.1.2.tgz#2e3560a7075210243649c888ad738eaf0daa8374"
+  integrity sha512-FFlUMKHKi+qG1x1iHNZ1hrtc/zHmfYTyrSvs3/wBTvaNtpZjOZGWzU7efGYVpgp6KvWeKF6ql9/KsCq6Z/mEDA==
 
 lodash.sortby@^4.7.0:
   version "4.7.0"

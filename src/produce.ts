@@ -6,9 +6,7 @@ import {
   isNativeCompatible,
   native
 } from "./native";
-import {
-  asyncExtendedIterable
-} from "iterable";
+import { asyncExtendedIterable } from "iterable";
 import { Fragment, FragmentVNode } from "@opennetwork/vnode";
 
 export function produce(node: VNode): FragmentVNode | HydratedDOMNativeVNode {
