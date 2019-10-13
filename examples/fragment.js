@@ -1,7 +1,8 @@
-import { render, EXPERIMENT_onAttached, EXPERIMENT_getDocumentNode, EXPERIMENT_attributes } from "../dist/index.js";
+import dom from "./jsdom";
+import { litRender } from "../dist/index.js";
 import { withContext } from "@opennetwork/vnode";
-import JSDOM from "jsdom";
 import htm from "htm";
+import { clean } from "./clean";
 
 const context = {};
 const h = withContext(context);
@@ -20,15 +21,14 @@ async function *SiblingInterval() {
 
 const node = h(SiblingInterval);
 
-const dom = new JSDOM.JSDOM();
-
-render(
+litRender(
   node,
   dom.window.document.body
 )
   .then(() => {
+    clean(dom.window.document.body);
     console.log("Complete");
-    console.log(dom.window.document.body.outerHTML);
+    console.log(dom.serialize());
   })
   .catch(error => console.error(error));
 
