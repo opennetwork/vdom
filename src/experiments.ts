@@ -4,7 +4,7 @@ export const EXPERIMENT_onBeforeRender = Symbol("onBeforeRender");
 export const EXPERIMENT_getDocumentNode = Symbol("getDocumentNode");
 export const EXPERIMENT_attributes = Symbol("attributes");
 
-function isAttributes(options: object): options is { attributes: Record<string, string> } {
+export function isAttributes(options: object): options is { attributes: Record<string, string> } {
   function isAttributesLike(options: object): options is { attributes?: unknown } {
     return !!options;
   }
@@ -14,7 +14,7 @@ function isAttributes(options: object): options is { attributes: Record<string, 
   );
 }
 
-function isAttributesExperiment(options: object): options is { [EXPERIMENT_attributes]: Record<string, string> } {
+export function isAttributesExperiment(options: object): options is { [EXPERIMENT_attributes]: Record<string, string> } {
   function isAttributesLike(options: object): options is { [EXPERIMENT_attributes]?: unknown } {
     return !!options;
   }
@@ -24,7 +24,7 @@ function isAttributesExperiment(options: object): options is { [EXPERIMENT_attri
   );
 }
 
-function isOnBeforeRender(options: object): options is { onBeforeRender: DOMNativeVNodeOptions[typeof EXPERIMENT_onBeforeRender] } {
+export function isOnBeforeRender(options: object): options is { onBeforeRender: DOMNativeVNodeOptions[typeof EXPERIMENT_onBeforeRender] } {
   function isOnBeforeRenderLike(options: object): options is { onBeforeRender?: unknown } {
     return !!options;
   }
@@ -34,7 +34,7 @@ function isOnBeforeRender(options: object): options is { onBeforeRender: DOMNati
   );
 }
 
-function isOnBeforeRenderExperiment(options: object): options is { [EXPERIMENT_onBeforeRender]: DOMNativeVNodeOptions[typeof EXPERIMENT_onBeforeRender] } {
+export function isOnBeforeRenderExperiment(options: object): options is { [EXPERIMENT_onBeforeRender]: DOMNativeVNodeOptions[typeof EXPERIMENT_onBeforeRender] } {
   function isOnBeforeRenderLike(options: object): options is { [EXPERIMENT_onBeforeRender]?: unknown } {
     return !!options;
   }
@@ -44,7 +44,7 @@ function isOnBeforeRenderExperiment(options: object): options is { [EXPERIMENT_o
   );
 }
 
-function isGetDocumentNode(options: object): options is { getDocumentNode: DOMNativeVNodeOptions[typeof EXPERIMENT_getDocumentNode] } {
+export function isGetDocumentNode(options: object): options is { getDocumentNode: DOMNativeVNodeOptions[typeof EXPERIMENT_getDocumentNode] } {
   function isGetDocumentNodeLike(options: object): options is { getDocumentNode?: unknown } {
     return !!options;
   }
@@ -54,7 +54,7 @@ function isGetDocumentNode(options: object): options is { getDocumentNode: DOMNa
   );
 }
 
-function isGetDocumentNodeExperiment(options: object): options is { [EXPERIMENT_getDocumentNode]: DOMNativeVNodeOptions[typeof EXPERIMENT_getDocumentNode] } {
+export function isGetDocumentNodeExperiment(options: object): options is { [EXPERIMENT_getDocumentNode]: DOMNativeVNodeOptions[typeof EXPERIMENT_getDocumentNode] } {
   function isGetDocumentNodeLike(options: object): options is { [EXPERIMENT_getDocumentNode]?: unknown } {
     return !!options;
   }
@@ -64,7 +64,7 @@ function isGetDocumentNodeExperiment(options: object): options is { [EXPERIMENT_
   );
 }
 
-function isExperimental(options: object): boolean {
+export function isExperimental(options: object): boolean {
   function isExperimentalLike(options: object): options is { [EXPERIMENT_attributes]?: DOMNativeVNodeOptions[typeof EXPERIMENT_attributes], [EXPERIMENT_onBeforeRender]?: DOMNativeVNodeOptions[typeof EXPERIMENT_onBeforeRender], [EXPERIMENT_getDocumentNode]?: DOMNativeVNodeOptions[typeof EXPERIMENT_getDocumentNode] } {
     return !!options;
   }
