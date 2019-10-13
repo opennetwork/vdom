@@ -1,6 +1,7 @@
-import { render, EXPERIMENT_onAttached, EXPERIMENT_getDocumentNode, EXPERIMENT_attributes } from "../dist/index.js";
+import dom from "./jsdom";
+import { litRender, EXPERIMENT_getDocumentNode, EXPERIMENT_attributes, EXPERIMENT_onBeforeRender } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
-import JSDOM from "jsdom";
+import {clean} from "./clean";
 
 const context = {};
 
@@ -16,7 +17,7 @@ const node = createVNode(
         [EXPERIMENT_getDocumentNode]: root => root.ownerDocument.createElement("div"),
         // This is run after we have have attached to to the DOM, and after we have run any more tasks
         // like setting attributes, but _before_ children are mounted
-        [EXPERIMENT_onAttached]: mounted => console.log("div", { mounted })
+        [EXPERIMENT_onBeforeRender]: mounted => console.log("div", { mounted })
       },
       createVNode(context, "button", {}),
       createVNode(
@@ -30,7 +31,7 @@ const node = createVNode(
             "button",
             {
               reference: "a",
-              [EXPERIMENT_onAttached]: mounted => {
+              [EXPERIMENT_onBeforeRender]: mounted => {
                 console.log("button a", { mounted });
                 ourFirstButton = mounted;
               },
@@ -55,7 +56,7 @@ const node = createVNode(
             "button",
             {
               reference: "b",
-              [EXPERIMENT_onAttached]: mounted => {
+              [EXPERIMENT_onBeforeRender]: mounted => {
                 console.log("button b", { mounted });
                 ourSecondButton = mounted;
               },
@@ -83,15 +84,14 @@ const node = createVNode(
   {}
 );
 
-const dom = new JSDOM.JSDOM();
-
-render(
+litRender(
   node,
   dom.window.document.body
 )
   .then(() => {
+    clean(dom.window.document.body);
     console.log("Complete");
-    console.log(dom.window.document.body.outerHTML);
+    console.log(dom.serialize());
   })
   .catch(error => console.error(error));
 

@@ -1,7 +1,8 @@
-import { render, EXPERIMENT_onAttached, EXPERIMENT_getDocumentNode, EXPERIMENT_attributes } from "../dist/index.js";
-import { withContext, marshal } from "@opennetwork/vnode";
-import JSDOM from "jsdom";
+import dom from "./jsdom";
+import { litRender } from "../dist/index.js";
+import { withContext } from "@opennetwork/vnode";
 import htm from "htm";
+import {clean} from "./clean";
 
 const context = {};
 const h = withContext(context);
@@ -51,17 +52,14 @@ const node = html`
   </main>
 `;
 
-const dom = new JSDOM.JSDOM();
-
-render(
+litRender(
   node,
   dom.window.document.body
 )
-// marshal(node)
-  .then(value => console.log(JSON.stringify(value, null, "  ")))
   .then(() => {
-    console.log("Complete!");
-    console.log(dom.window.document.body.outerHTML);
+    clean(dom.window.document.body);
+    console.log("Complete");
+    console.log(dom.serialize());
   })
   .catch(error => console.error(error));
 
