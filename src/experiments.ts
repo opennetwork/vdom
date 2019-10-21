@@ -1,8 +1,8 @@
 import { DOMNativeVNodeOptions } from "./native";
 
-export const EXPERIMENT_onBeforeRender = Symbol("onBeforeRender");
-export const EXPERIMENT_getDocumentNode = Symbol("getDocumentNode");
-export const EXPERIMENT_attributes = Symbol("attributes");
+export const EXPERIMENT_onBeforeRender = Symbol.for("@opennetwork/vdom/onBeforeRender");
+export const EXPERIMENT_getDocumentNode = Symbol.for("@opennetwork/vdom/getDocumentNode");
+export const EXPERIMENT_attributes = Symbol.for("@opennetwork/vdom/attributes");
 
 export function isAttributes(options: object): options is { attributes: Record<string, string> } {
   function isAttributesLike(options: object): options is { attributes?: unknown } {
