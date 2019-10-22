@@ -1,5 +1,5 @@
 import dom from "./jsdom";
-import { litRender, EXPERIMENT_attributes } from "../dist/index.js";
+import { litRender } from "../dist/index.js";
 import { withContext } from "@opennetwork/vnode";
 import htm from "htm";
 import { clean } from "./clean";
@@ -9,12 +9,12 @@ const h = withContext(context);
 const html = htm.bind(h);
 
 const node = html`
-  <main ...${{}}>
-    <section ...${{}}>
-        <h1 ...${{}}>Title</h1>
-        <p ...${{}}>Content</p>
+  <main attributes=${{}}>
+    <section attributes=${{}}>
+        <h1 attributes=${{}}>Title</h1>
+        <p attributes=${{}}>Content</p>
     </section>
-    <button ...${{ [EXPERIMENT_attributes]: { type: "button" } }}>Do something</button>
+    <button attributes=${{ type: "button" }}>Do something</button>
   </main>
 `;
 

@@ -4,9 +4,8 @@ import { produce } from "../produce";
 import { HydratedDOMNativeVNode, isHydratedDOMNativeVNode } from "../native";
 import { asyncExtendedIterable, isPromise } from "iterable";
 import { asyncAppend } from "lit-html/directives/async-append";
-import { getDocumentNode, isElement } from "../document-node";
+import { getDocumentNode, isElement, isExpectedNode, isText } from "../document-node";
 import { setAttributes } from "../attributes";
-import { EXPERIMENT_onBeforeRender } from "../experiments";
 
 interface WithPromiseContext {
   context: PromiseContext;
@@ -115,7 +114,11 @@ function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext
   return wrapAsyncDirective(directive(() => part => run(part)), context)();
 
   async function run(part: Part): Promise<Element | Text> {
-    const documentNode = await getNode();
+    let documentNode = await getNode();
+
+    if (part.value && (isElement(part.value) || isText(part.value)) && isExpectedNode(node, part.value)) {
+      documentNode = part.value;
+    }
 
     if (isElement(documentNode)) {
       // Set attributes here, this will mean by the time we get to commit, it will change the attributes
@@ -124,9 +127,9 @@ function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext
       setAttributes(node, documentNode);
     }
 
-    if (node.options[EXPERIMENT_onBeforeRender]) {
-      // This happens _before_ mount, it only provides a way
-      const result = node.options[EXPERIMENT_onBeforeRender](documentNode);
+    if (node.options.onBeforeRender) {
+      // This happens _before_ mount, it only provides a way to grab onto that node
+      const result = node.options.onBeforeRender(documentNode);
       if (isPromise(result)) {
         await result;
       }

@@ -1,34 +1,14 @@
 import {
-  isFragmentVNode,
   isNativeVNode,
-  isScalarVNode,
-  isSourceReference,
   NativeVNode,
   VNode
 } from "@opennetwork/vnode";
 import { asyncExtendedIterable } from "iterable";
-import {
-  EXPERIMENT_onBeforeRender,
-  EXPERIMENT_attributes,
-  EXPERIMENT_getDocumentNode
-} from "./experiments";
+import { NativeOptions, isNativeOptions, getNativeOptions } from "./options";
 
-export type DOMNativeVNodeType = "Element" | "Text";
-export type DOMNativeVNodeInstance = Element | Text;
-
-export interface DOMNativeVNodeOptions<Type extends DOMNativeVNodeType = DOMNativeVNodeType, Instance extends DOMNativeVNodeInstance = DOMNativeVNodeInstance> {
-  type: DOMNativeVNodeType;
-  is?: string;
-  instance?: Element | Text;
-  whenDefined?: boolean;
-  [EXPERIMENT_onBeforeRender]?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  [EXPERIMENT_getDocumentNode]?: (root: Element, node: HydratedDOMNativeVNode) => Element | Text | Promise<Element | Text>;
-  [EXPERIMENT_attributes]?: Record<string, string>;
-}
-
-export interface DOMNativeVNode<Type extends DOMNativeVNodeType = DOMNativeVNodeType, Instance extends DOMNativeVNodeInstance = DOMNativeVNodeInstance> extends NativeVNode {
+export interface DOMNativeVNode extends NativeVNode {
   source: string;
-  options: DOMNativeVNodeOptions<Type, Instance>;
+  options: NativeOptions;
 }
 
 const HydratedDOMNativeVNodeSymbol = Symbol("Hydrated DOM Native VNode");
@@ -62,56 +42,15 @@ export function isHydratedDOMNativeVNode(node: VNode): node is HydratedDOMNative
 }
 
 export function isDOMNativeVNode(node: VNode): node is DOMNativeVNode {
-  function isDOMNativeVNodeLike(node: VNode): node is NativeVNode & { options?: Partial<DOMNativeVNode["options"]> } {
-    return isNativeVNode(node);
-  }
   return (
-    isDOMNativeVNodeLike(node) &&
+    isNativeVNode(node) &&
     typeof node.source === "string" &&
-    !!node.options &&
-    typeof node.options.type === "string" &&
-    (
-      node.options.type === "Element" ||
-      node.options.type === "Text"
-    ) &&
-    (
-      !node.options.is ||
-      isIsOptions(node.options)
-    )
+    isNativeOptions(node.options)
   );
 }
 
 export function isNativeCompatible(vnode: VNode): boolean {
   return !!getNativeOptions(vnode);
-}
-
-function getNativeOptions(vnode: VNode): DOMNativeVNode["options"] {
-  if (isFragmentVNode(vnode)) {
-    return undefined;
-  }
-
-  // Everything but a symbol can be a node, if you want to reference a symbol for a node, use a custom factory
-  if (typeof vnode.source === "symbol" || !isSourceReference(vnode.source)) {
-    return undefined;
-  }
-
-  // If we have no given options, then we have a text node
-  if (isScalarVNode(vnode) && !vnode.options && typeof vnode.source !== "symbol") {
-    return {
-      type: "Text"
-    };
-  }
-
-  // We can only create elements from string sources
-  if (typeof vnode.source !== "string") {
-    return undefined;
-  }
-
-  return {
-    ...vnode.options,
-    type: "Element",
-    is: isIsOptions(vnode.options) ? vnode.options.is : undefined
-  };
 }
 
 export function native(options: unknown, children: VNode): VNode {
@@ -121,21 +60,11 @@ export function native(options: unknown, children: VNode): VNode {
   } else {
     return {
       source: String(children.source),
-      reference: children.reference || Symbol("DOM Native"),
+      reference: children.reference || Symbol("@opennetwork/vdom/native"),
       native: true,
       options: nativeOptions,
       // We're going to git these children a few times, so we want to retain our values
       children: asyncExtendedIterable(children.children).retain()
     };
   }
-}
-
-function isIsOptions(options: unknown): options is { is: string } {
-  function isIsOptionsLike(options: unknown): options is { is?: unknown } {
-    return !!options;
-  }
-  return (
-    isIsOptionsLike(options) &&
-    typeof options.is === "string"
-  );
 }

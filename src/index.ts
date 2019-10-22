@@ -1,3 +1,3 @@
 export * from "./lit-render";
-export * from "./experiments";
+export * from "./options";
 export * from "./native";

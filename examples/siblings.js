@@ -26,8 +26,8 @@ async function *SiblingInterval() {
   let count = 0;
   while (count < 3) {
     yield html`
-      <span data-value=${count} reference="interval">Interval ${count}</span>
-      <span data-value=${count} reference="interval2">Interval ${count}</span>
+      <span attributes=${{ "data-value": count }} reference="interval">Interval ${count}</span>
+      <span attributes=${{ "data-value": count }} reference="interval2">Interval ${count}</span>
       ${h(SiblingFinalInterval)}
     `;
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -39,17 +39,17 @@ async function *SiblingInterval() {
 
 function Sibling() {
   return html`
-    <h2 ...${{ reference: "s2" }}>Sibling 2</h2>
+    <h2 reference="s2">Sibling 2</h2>
     ${h(SiblingInterval)}
-    <h3 ...${{ reference: "s4" }}>Sibling 3</h3>
+    <h3 reference="s4">Sibling 3</h3>
   `;
 }
 
 const node = html`
-  <main ...${{}}>
-    <h1 ...${{ reference: "s1" }}>Sibling 1</h1>
+  <main reference="main">
+    <h1 reference="s1">Sibling 1</h1>
     ${h(Sibling)}
-    <h4 ...${{ reference: "s4" }}>Sibling 4</h4>
+    <h4  reference="s4">Sibling 4</h4>
   </main>
 `;
 

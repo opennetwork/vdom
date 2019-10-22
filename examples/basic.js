@@ -1,5 +1,5 @@
 import dom from "./jsdom";
-import { litRender, EXPERIMENT_getDocumentNode, EXPERIMENT_attributes, EXPERIMENT_onBeforeRender } from "../dist/index.js";
+import { litRender } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
 import {clean} from "./clean";
 
@@ -14,10 +14,10 @@ const node = createVNode(
       "div",
       {
         // We can hold onto our own node if we wanted to, or if we already had one
-        [EXPERIMENT_getDocumentNode]: root => root.ownerDocument.createElement("div"),
+        getDocumentNode: root => root.ownerDocument.createElement("div"),
         // This is run after we have have attached to to the DOM, and after we have run any more tasks
         // like setting attributes, but _before_ children are mounted
-        [EXPERIMENT_onBeforeRender]: mounted => console.log("div", { mounted })
+        onBeforeRender: mounted => console.log("div", { mounted })
       },
       createVNode(context, "button", {}),
       createVNode(
@@ -31,11 +31,11 @@ const node = createVNode(
             "button",
             {
               reference: "a",
-              [EXPERIMENT_onBeforeRender]: mounted => {
+              onBeforeRender: mounted => {
                 console.log("button a", { mounted });
                 ourFirstButton = mounted;
               },
-              [EXPERIMENT_attributes]: {
+              attributes: {
                 type: "button"
               }
             },
@@ -56,11 +56,11 @@ const node = createVNode(
             "button",
             {
               reference: "b",
-              [EXPERIMENT_onBeforeRender]: mounted => {
+              onBeforeRender: mounted => {
                 console.log("button b", { mounted });
                 ourSecondButton = mounted;
               },
-              [EXPERIMENT_attributes]: {
+              attributes: {
                 type: "button"
               }
             },

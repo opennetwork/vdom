@@ -12,7 +12,7 @@ async function *SiblingInterval() {
   let count = 0;
   while (count < 3) {
     yield html`
-    <span data-value=${count}>Interval ${count}</span>`;
+    <span attributes=${{ "data-value": count }}>Interval ${count}</span>`;
     await new Promise(resolve => setTimeout(resolve, 50));
     count += 1;
   }

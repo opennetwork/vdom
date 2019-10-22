@@ -1,9 +1,10 @@
 import { HydratedDOMNativeVNode } from "./native";
-import { EXPERIMENT_attributes } from "./experiments";
+import { isNativeAttributesObject } from "./options";
 
 export function setAttributes(node: HydratedDOMNativeVNode, documentNode: Element) {
-  const attributes = node.options[EXPERIMENT_attributes];
-  if (!attributes) {
+  const attributes = node.options.attributes;
+
+  if (!isNativeAttributesObject(attributes)) {
     return;
   }
 
@@ -22,28 +23,34 @@ export function setAttributes(node: HydratedDOMNativeVNode, documentNode: Elemen
     throw new Error(`Duplicate keys found for ${duplicates.join(", ")}, this will lead to unexpected behaviour, and is not supported`);
   }
 
+  const toRemove = [];
+
   // Don't use lower keys here as we need to access attributes
   keys.forEach(key => {
-    documentNode.setAttribute(key, attributes[key]);
+    const value = attributes[key];
+    if (value === undefined || value === false) {
+      toRemove.push(key);
+    } else if (value === true) {
+      documentNode.setAttribute(key, "");
+    } else {
+      documentNode.setAttribute(key, String(attributes[key]));
+    }
   });
 
   const attributesLength = documentNode.attributes.length;
 
   // Assume we set all of these attributes, and don't need to check further if there
-  if (attributesLength === keys.length) {
+  if (attributesLength === keys.length && toRemove.length === 0) {
     return;
   }
 
-  const toRemove = [];
-
   for (let attributeIndex = 0; attributeIndex < attributesLength; attributeIndex += 1) {
     const attribute = documentNode.attributes.item(attributeIndex);
-    if (lowerKeys.includes(attribute.name)) {
+    if (lowerKeys.includes(attribute.name.toLowerCase())) {
       continue;
     }
     toRemove.push(attribute.name);
   }
 
   toRemove.forEach(key => documentNode.removeAttribute(key));
-
 }

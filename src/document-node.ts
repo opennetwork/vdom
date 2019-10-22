@@ -1,5 +1,4 @@
 import { HydratedDOMNativeVNode } from "./native";
-import { EXPERIMENT_getDocumentNode } from "./experiments";
 import { isPromise } from "iterable";
 
 export function isNode(value: unknown): value is Node {
@@ -39,8 +38,8 @@ export function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNod
 }
 
 export async function getDocumentNode(root: Element, node: HydratedDOMNativeVNode): Promise<Text | Element> {
-  if (typeof node.options[EXPERIMENT_getDocumentNode] === "function") {
-    let result = node.options[EXPERIMENT_getDocumentNode](root, node);
+  if (typeof node.options.getDocumentNode === "function") {
+    let result = node.options.getDocumentNode(root, node);
     if (isPromise(result)) {
       result = await result;
     }
