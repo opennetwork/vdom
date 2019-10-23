@@ -120,7 +120,9 @@ function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext
   async function run(part: Part): Promise<Element | Text> {
     let documentNode;
 
-    if (isPartValueExpectedNode(part)) {
+    // Only if getDocumentNode is not available will be check if it is already correct
+    // this is because getDocumentNode can have side-effects of its own before we know about it
+    if (!node.options.getDocumentNode && isPartValueExpectedNode(part)) {
       documentNode = part.value;
     } else {
       documentNode = await getNode();
@@ -158,10 +160,13 @@ function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext
     // Node is checked directly, but it needs to be in the global scope for this to work
     // https://github.com/Polymer/lit-html/blob/master/src/lib/parts.ts#L310
     const currentDocumentNode = documentNodes.get(node);
-    if (currentDocumentNode) {
+    // Only if the parentNode is the current root will we utilise the known element
+    if (currentDocumentNode && currentDocumentNode.parentElement === root) {
       // We already had one for this object, so retain and use again
       return currentDocumentNode;
     }
+    // Remove while we generate
+    documentNodes.delete(node);
     const documentNode = await getDocumentNode(root, node);
     documentNodes.set(node, documentNode);
     return documentNode;
