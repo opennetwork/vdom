@@ -113,11 +113,17 @@ function fragment(container: Element, produced: FragmentVNode, asyncContext: Asy
 function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext, documentNodes: DocumentNodeMap): object {
   return wrapAsyncDirective(directive(() => part => run(part)), context)();
 
-  async function run(part: Part): Promise<Element | Text> {
-    let documentNode = await getNode();
+  function isPartValueExpectedNode(part: Part): part is Part & { value: Element | Text } {
+    return part.value && (isElement(part.value) || isText(part.value)) && isExpectedNode(node, part.value);
+  }
 
-    if (part.value && (isElement(part.value) || isText(part.value)) && isExpectedNode(node, part.value)) {
+  async function run(part: Part): Promise<Element | Text> {
+    let documentNode;
+
+    if (isPartValueExpectedNode(part)) {
       documentNode = part.value;
+    } else {
+      documentNode = await getNode();
     }
 
     if (isElement(documentNode)) {
