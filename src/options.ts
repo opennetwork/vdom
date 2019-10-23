@@ -13,6 +13,9 @@ export interface NativeOptions {
   instance?: DOMNativeVNodeInstance;
   whenDefined?: boolean;
   onBeforeRender?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+  onConnected?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+  onRendered?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+  onDisconnected?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
   getDocumentNode?: (root: Element, node: HydratedDOMNativeVNode) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>;
   attributes?: NativeAttributes;
 }

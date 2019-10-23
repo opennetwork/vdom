@@ -2,130 +2,75 @@ import { Fragment, FragmentVNode, isFragmentVNode, isVNode, VNode } from "@openn
 import { directive, noChange, nothing, Part, render, NodePart } from "lit-html";
 import { produce } from "../produce";
 import { HydratedDOMNativeVNode, isHydratedDOMNativeVNode } from "../native";
-import { asyncExtendedIterable, isPromise } from "iterable";
+import { isPromise } from "iterable";
 import { asyncAppend } from "lit-html/directives/async-append";
 import { getDocumentNode, isElement, isExpectedNode, isText } from "../document-node";
 import { setAttributes } from "../attributes";
+import { LitContext, LitPromiseContext } from "./context";
 
-interface WithPromiseContext {
-  context: PromiseContext;
-  within: PromiseContext[];
-  originalError: unknown;
-}
-
-function isWithPromiseContext(value: unknown): value is WithPromiseContext {
-  function isWithPromiseContextLike(value: unknown): value is Partial<WithPromiseContext> {
-    return !!value;
-  }
-  return !!(
-    isWithPromiseContextLike(value) &&
-    value.context &&
-    Array.isArray(value.within)
-  );
-}
-
-interface PromiseContext {
-  node?: VNode;
-  from?: string;
-}
-
-class AsyncContext {
-  private promises: Promise<unknown>[] = [];
-
-  pushPromise(promise: Promise<unknown>, context?: PromiseContext) {
-    const newPromise = !context ? promise : promise.catch(error => {
-      if (isWithPromiseContext(error)) {
-        // Re-throw, it has the original info
-        error.within.push(context);
-        throw error;
-      }
-      const newError: Error & Partial<WithPromiseContext> = new Error(error);
-      newError.context = context;
-      newError.originalError = error;
-      newError.within = [];
-      throw newError;
-    });
-
-    this.promises.push(newPromise);
-    // Catch unhandled errors, we _will_ grab these
-    newPromise.catch(() => {});
-  }
-
-  async flush(): Promise<void> {
-    do {
-      const currentPromises = this.promises.slice();
-      await Promise.all(currentPromises);
-      this.promises = this.promises.filter(promise => !currentPromises.includes(promise));
-    } while (this.promises.length);
-  }
-}
-
-export async function litRender(initialNode: VNode, container: Element) {
+export function litRender(initialNode: VNode, container: Element): Promise<void> {
   if (!initialNode) {
-    return;
+    return Promise.resolve();
   }
 
-  const asyncContext = new AsyncContext();
+  const context = new LitContext();
   const produced = produce(initialNode);
-  const documentNodes: DocumentNodeMap = new WeakMap();
 
-  if (isFragmentVNode(produced)) {
-    render(fragment(container, produced, asyncContext, documentNodes), container);
-  } else if (isHydratedDOMNativeVNode(produced)) {
-    render(node(container, produced, asyncContext, documentNodes), container);
-  }
+  render(
+    node(container, produced, context),
+    container
+  );
 
-  await asyncContext.flush();
+  return context.flush();
 }
 
-
-interface DocumentNodeMap extends WeakMap<VNode, Element | Text> { }
-
-function fragment(container: Element, produced: FragmentVNode, asyncContext: AsyncContext, documentNodes: DocumentNodeMap): object {
+function fragment(container: Element, produced: FragmentVNode, context: LitContext): object {
   let previousPromise: Promise<unknown> = undefined;
   return asyncReplace(
     produced.children,
-    async (children: AsyncIterable<VNode>, index, asyncContext) => {
+    async (children: AsyncIterable<VNode>, context) => {
       if (previousPromise) {
         await previousPromise;
         previousPromise = undefined;
       }
-      return wrapAsyncDirective(asyncAppend, asyncContext, nextPromise => previousPromise = nextPromise, { node: produced, from: "asyncAppend" })(
+      return wrapAsyncDirective(asyncAppend, context, nextPromise => previousPromise = nextPromise, { node: produced, from: "asyncAppend" })(
         children,
         child => {
           if (!isVNode(child)) {
             return nothing;
           }
-          if (isFragmentVNode(child)) {
-            return fragment(container, child, asyncContext, documentNodes);
-          } else if (isHydratedDOMNativeVNode(child)) {
-            return node(container, child, asyncContext, documentNodes);
-          } else {
-            return nothing;
-          }
+          return node(container, child, context);
         }
       );
     },
-    asyncContext
+    context
   );
 }
 
-function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext, documentNodes: DocumentNodeMap): object {
-  return wrapAsyncDirective(directive(() => part => run(part)), context)();
+function node(root: Element, node: VNode, context: LitContext): object {
+  if (isFragmentVNode(node)) {
+    return fragment(root, node, context);
+  }
 
-  function isPartValueExpectedNode(part: Part): part is Part & { value: Element | Text } {
+  if (!isHydratedDOMNativeVNode(node)) {
+    return nothing;
+  }
+
+  return wrapAsyncDirective(directive(() => part => run(node, part)), context)();
+
+  function isPartValueExpectedNode(node: HydratedDOMNativeVNode, part: Part): part is Part & { value: Element | Text } {
     return part.value && (isElement(part.value) || isText(part.value)) && isExpectedNode(node, part.value);
   }
 
-  async function run(part: Part): Promise<Element | Text> {
-    let documentNode;
+  async function run(node: HydratedDOMNativeVNode, part: Part): Promise<Element | Text> {
+    let documentNode: Element | Text;
 
     // Only if getDocumentNode is not available will be check if it is already correct
     // this is because getDocumentNode can have side-effects of its own before we know about it
-    if (!node.options.getDocumentNode && isPartValueExpectedNode(part)) {
+    if (!node.options.getDocumentNode && isPartValueExpectedNode(node, part)) {
       documentNode = part.value;
     } else {
-      documentNode = await getNode();
+      documentNode = await getNode(node);
     }
 
     if (isElement(documentNode)) {
@@ -146,34 +91,53 @@ function node(root: Element, node: HydratedDOMNativeVNode, context: AsyncContext
     part.setValue(documentNode);
     part.commit();
 
-    if (!isElement(documentNode) || !node.children) {
-      return;
+    if (node.options.onConnected) {
+      const result = node.options.onConnected(documentNode);
+      if (isPromise(result)) {
+        await result;
+      }
     }
 
-    context.pushPromise(litRender(
-      { reference: Fragment, children: node.children },
-      documentNode
-    ), { node, from: "child render" });
+    const onRendered = async () => {
+      if (node.options.onRendered) {
+        const result = node.options.onRendered(documentNode);
+        if (isPromise(result)) {
+          await result;
+        }
+      }
+    };
+
+    if (isElement(documentNode) && node.children) {
+      const promise = litRender(
+        { reference: Fragment, children: node.children },
+        documentNode
+      ).then(onRendered);
+      context.pushPromise(promise, { node, from: "child render" });
+    } else {
+      await onRendered();
+    }
+
+    return documentNode;
   }
 
-  async function getNode() {
+  async function getNode(node: HydratedDOMNativeVNode) {
     // Node is checked directly, but it needs to be in the global scope for this to work
     // https://github.com/Polymer/lit-html/blob/master/src/lib/parts.ts#L310
-    const currentDocumentNode = documentNodes.get(node);
+    const currentDocumentNode = context.documentNodes.get(node);
     // Only if the parentNode is the current root will we utilise the known element
     if (currentDocumentNode && currentDocumentNode.parentElement === root) {
       // We already had one for this object, so retain and use again
       return currentDocumentNode;
     }
     // Remove while we generate
-    documentNodes.delete(node);
+    context.documentNodes.delete(node);
     const documentNode = await getDocumentNode(root, node);
-    documentNodes.set(node, documentNode);
+    context.documentNodes.set(node, documentNode);
     return documentNode;
   }
 }
 
-function wrapAsyncDirective<Args extends any[]>(fn: (...args: Args) => (part: Part) => unknown, context: AsyncContext, onPromise?: (promise: Promise<unknown>) => void, promiseContext?: PromiseContext) {
+function wrapAsyncDirective<Args extends any[]>(fn: (...args: Args) => (part: Part) => unknown, context: LitContext, onPromise?: (promise: Promise<unknown>) => void, promiseContext?: LitPromiseContext) {
   return directive(
     (...args: Args) => {
       const nextFn = fn(...args);
@@ -196,12 +160,12 @@ function wrapAsyncDirective<Args extends any[]>(fn: (...args: Args) => (part: Pa
 // This is a near clone of https://github.com/Polymer/lit-html/blob/master/src/directives/async-replace.ts
 // However we want to both collect promises, and flush promises after each commit
 const asyncReplace = directive(
-  <T>(value: AsyncIterable<T>, mapper: (v: T, index: number, context: AsyncContext) => unknown, givenContext: AsyncContext) => (part: Part) => {
+  <T>(value: AsyncIterable<T>, mapper: (v: T, context: LitContext) => unknown, givenContext: LitContext) => (part: Part) => {
     givenContext.pushPromise(run());
 
     async function run() {
       if (!(part instanceof NodePart)) {
-        throw new Error("asyncReplace can only be used in text bindings");
+        throw new Error("Expected NodePart");
       }
 
       // If we've already set up this particular iterable, we don't need
@@ -210,14 +174,14 @@ const asyncReplace = directive(
         return;
       }
 
-      const context = new AsyncContext();
+      const context = new LitContext();
 
       // We nest a new part to keep track of previous item values separately
       // of the iterable as a value itself.
       const itemPart = new NodePart(part.options);
       part.value = value;
 
-      let i = 0;
+      let cleared: boolean = false;
 
       for await (let v of value) {
         // Check to make sure that value is the still the current value of
@@ -228,18 +192,18 @@ const asyncReplace = directive(
 
         // When we get the first value, clear the part. This let's the
         // previous value display until we can replace it.
-        if (i === 0) {
+        if (!cleared) {
           part.clear();
           itemPart.appendIntoPart(part);
+          cleared = true;
         }
 
         if (mapper !== undefined) {
-          v = await mapper(v, i, context) as T;
+          v = await mapper(v, context) as T;
         }
 
         itemPart.setValue(v);
         itemPart.commit();
-        i++;
 
         // Wait for this context to be ready for the next render
         await context.flush();
