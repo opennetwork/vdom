@@ -111,7 +111,10 @@ export function isNativeOptions(options: object): options is NativeOptions {
   }
   return !!(
     isNativeOptionsLike(options) &&
-    typeof options.type === "string" &&
+    (
+      options.type === "Element" ||
+      options.type === "Text"
+    ) &&
     isAttributesOptionsLike(options) &&
     isOnBeforeRenderOptionsLike(options) &&
     isGetDocumentNodeOptionsLike(options) &&
