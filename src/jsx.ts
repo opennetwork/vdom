@@ -153,7 +153,7 @@ declare global {
       label: HTMLElementAttributes;
       em: HTMLElementAttributes;
       textarea: HTMLElementAttributes<HTMLTextAreaElement>;
-      style: HTMLElementAttributes<HTMLStyleElement>
+      style: HTMLElementAttributes<HTMLStyleElement>;
     }
 
     interface IntrinsicElements extends DOMElements {
