@@ -38,11 +38,11 @@ declare global {
       getDocumentNode?: () => E | Promise<E>;
     }
 
-    interface HTMLButtonAttributes extends HTMLElementAttributes {
+    interface HTMLButtonAttributes extends HTMLElementAttributes<HTMLButtonElement> {
       type?: "submit" | "button";
     }
 
-    interface HTMLAnchorAttributes extends HTMLElementAttributes {
+    interface HTMLAnchorAttributes extends HTMLElementAttributes<HTMLAnchorElement> {
       href?: string;
       download?: string;
       hreflang?: string;
@@ -53,7 +53,7 @@ declare global {
       type?: string;
     }
 
-    interface HTMLImageAttributes extends HTMLElementAttributes {
+    interface HTMLImageAttributes extends HTMLElementAttributes<HTMLImageElement> {
       src?: string;
       alt?: string;
       srcset?: string;
@@ -76,7 +76,7 @@ declare global {
       prefetch?: string;
     }
 
-    interface HTMLMetaAttributes extends HTMLElementAttributes {
+    interface HTMLMetaAttributes extends HTMLElementAttributes<HTMLMetaElement> {
       charset?: string;
       content?: string;
       "http-equiv"?: "content-security-policy" | "refresh";
@@ -84,11 +84,11 @@ declare global {
       value?: string;
     }
 
-    interface HTMLSlotAttributes extends HTMLElementAttributes {
+    interface HTMLSlotAttributes extends HTMLElementAttributes<HTMLSlotElement> {
       name?: string;
     }
 
-    interface HTMLScriptAttributes extends HTMLElementAttributes {
+    interface HTMLScriptAttributes extends HTMLElementAttributes<HTMLScriptElement> {
       src?: string;
       type?: string;
       async?: BooleanAttribute;
@@ -101,57 +101,57 @@ declare global {
     }
 
     interface DOMElements {
-      html: HTMLElementAttributes;
-      body: HTMLElementAttributes;
-      head: HTMLElementAttributes;
-      title: HTMLElementAttributes;
-      header: HTMLElementAttributes;
-      footer: HTMLElementAttributes;
-      article: HTMLElementAttributes;
-      section: HTMLElementAttributes;
-      div: HTMLElementAttributes;
-      span: HTMLElementAttributes;
+      html: HTMLElementAttributes<HTMLHtmlElement>;
+      body: HTMLElementAttributes<HTMLBodyElement>;
+      head: HTMLElementAttributes<HTMLHeadElement>;
+      title: HTMLElementAttributes<HTMLTitleElement>;
+      header: HTMLElementAttributes<HTMLElement>;
+      footer: HTMLElementAttributes<HTMLElement>;
+      article: HTMLElementAttributes<HTMLElement>;
+      section: HTMLElementAttributes<HTMLElement>;
+      div: HTMLElementAttributes<HTMLDivElement>;
+      span: HTMLElementAttributes<HTMLSpanElement>;
       img: HTMLImageAttributes;
-      aside: HTMLElementAttributes;
-      audio: HTMLElementAttributes;
-      canvas: HTMLElementAttributes;
-      datalist: HTMLElementAttributes;
-      details: HTMLElementAttributes;
-      embed: HTMLElementAttributes;
-      nav: HTMLElementAttributes;
-      output: HTMLElementAttributes;
-      progress: HTMLElementAttributes;
-      video: HTMLElementAttributes;
-      ul: HTMLElementAttributes;
-      li: HTMLElementAttributes;
-      ol: HTMLElementAttributes;
+      aside: HTMLElementAttributes<HTMLElement>;
+      audio: HTMLElementAttributes<HTMLAudioElement>;
+      canvas: HTMLElementAttributes<HTMLCanvasElement>;
+      datalist: HTMLElementAttributes<HTMLDataListElement>;
+      details: HTMLElementAttributes<HTMLDetailsElement>;
+      embed: HTMLElementAttributes<HTMLEmbedElement>;
+      nav: HTMLElementAttributes<HTMLElement>;
+      output: HTMLElementAttributes<HTMLOutputElement>;
+      progress: HTMLElementAttributes<HTMLProgressElement>;
+      video: HTMLElementAttributes<HTMLVideoElement>;
+      ul: HTMLElementAttributes<HTMLUListElement>;
+      li: HTMLElementAttributes<HTMLElement>;
+      ol: HTMLElementAttributes<HTMLOListElement>;
       a: HTMLAnchorAttributes;
-      p: HTMLElementAttributes;
+      p: HTMLElementAttributes<HTMLElement>;
       button: HTMLButtonAttributes;
-      table: HTMLElementAttributes;
-      thead: HTMLElementAttributes;
-      tbody: HTMLElementAttributes;
-      tr: HTMLElementAttributes;
-      td: HTMLElementAttributes;
-      th: HTMLElementAttributes;
+      table: HTMLElementAttributes<HTMLElement>;
+      thead: HTMLElementAttributes<HTMLElement>;
+      tbody: HTMLElementAttributes<HTMLElement>;
+      tr: HTMLElementAttributes<HTMLElement>;
+      td: HTMLElementAttributes<HTMLElement>;
+      th: HTMLElementAttributes<HTMLElement>;
       link: HTMLLinkAttributes;
       meta: HTMLMetaAttributes;
-      marquee: HTMLElementAttributes;
+      marquee: HTMLElementAttributes<HTMLElement>;
       slot: HTMLSlotAttributes;
-      h1: HTMLElementAttributes;
-      h2: HTMLElementAttributes;
-      h3: HTMLElementAttributes;
-      h4: HTMLElementAttributes;
-      h5: HTMLElementAttributes;
-      h6: HTMLElementAttributes;
+      h1: HTMLElementAttributes<HTMLElement>;
+      h2: HTMLElementAttributes<HTMLElement>;
+      h3: HTMLElementAttributes<HTMLElement>;
+      h4: HTMLElementAttributes<HTMLElement>;
+      h5: HTMLElementAttributes<HTMLElement>;
+      h6: HTMLElementAttributes<HTMLElement>;
       script: HTMLScriptAttributes;
-      pre: HTMLElementAttributes;
-      code: HTMLElementAttributes;
-      br: HTMLElementAttributes;
-      hr: HTMLElementAttributes;
-      main: HTMLElementAttributes;
-      label: HTMLElementAttributes;
-      em: HTMLElementAttributes;
+      pre: HTMLElementAttributes<HTMLPreElement>;
+      code: HTMLElementAttributes<HTMLElement>;
+      br: HTMLElementAttributes<HTMLBRElement>;
+      hr: HTMLElementAttributes<HTMLHRElement>;
+      main: HTMLElementAttributes<HTMLElement>;
+      label: HTMLElementAttributes<HTMLLabelElement>;
+      em: HTMLElementAttributes<HTMLElement>;
       textarea: HTMLElementAttributes<HTMLTextAreaElement>;
       style: HTMLElementAttributes<HTMLStyleElement>;
     }
