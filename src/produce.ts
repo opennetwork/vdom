@@ -17,10 +17,14 @@ export function produce(node: VNode): FragmentVNode | HydratedDOMNativeVNode {
     });
   } else if (isNativeCompatible(node)) {
     return produce(native(undefined, node));
-  } else {
+  } else if (node && node.children) {
     return {
       reference: Fragment,
       children: produceChildren(node)
+    };
+  } else {
+    return {
+      reference: Fragment
     };
   }
 }
