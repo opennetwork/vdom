@@ -1,7 +1,7 @@
-import dom from "./jsdom";
-import { litRender } from "../dist/index.js";
+import dom from "./jsdom.js";
+import { render } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
-import {clean} from "./clean";
+import {clean} from "./clean.js";
 
 const context = {};
 
@@ -19,72 +19,78 @@ const node = createVNode(
         // like setting attributes, but _before_ children are mounted
         onBeforeRender: mounted => console.log("div", { mounted })
       },
-      createVNode(context, "button", {}),
-      createVNode(
-        context,
-        async function *() {
-          console.log("Start 1");
+      [
+        createVNode(context, "button", {}),
+        createVNode(
+          context,
+          async function *() {
+            console.log("Start 1");
 
-          let ourFirstButton;
-          yield createVNode(
-            context,
-            "button",
-            {
-              reference: "a",
-              onBeforeRender: mounted => {
-                console.log("button a", { mounted });
-                ourFirstButton = mounted;
+            let ourFirstButton;
+            const node = createVNode(
+              context,
+              "somename",
+              {
+                reference: "a",
+                onBeforeRender: mounted => {
+                  console.log("button a", { mounted });
+                  ourFirstButton = mounted;
+                },
+                attributes: {
+                  type: "somename"
+                }
               },
-              attributes: {
-                type: "button"
-              }
-            },
-            "hello",
-            "hello",
-            "hello"
-          );
+              "hello",
+              "hello",
+              "hello"
+            );
+            console.log({ node });
+            yield node;
 
-          // We will have a reference to our button here
-          console.log({ ourFirstButton });
+            // We will have a reference to our button here
+            console.log({ ourFirstButton });
 
-          // We can do this here if we wanted
-          ourFirstButton.setAttribute("key", "value");
+            // We can do this here if we wanted
+            // ourFirstButton.setAttribute("key", "value");
 
-          let ourSecondButton;
-          yield createVNode(
-            context,
-            "button",
-            {
-              reference: "b",
-              onBeforeRender: mounted => {
-                console.log("button b", { mounted });
-                ourSecondButton = mounted;
+            let ourSecondButton;
+            yield createVNode(
+              context,
+              "button",
+              {
+                reference: "b",
+                onBeforeRender: mounted => {
+                  console.log("button b", { mounted });
+                  ourSecondButton = mounted;
+                },
+                attributes: {
+                  type: "button"
+                }
               },
-              attributes: {
-                type: "button"
-              }
-            },
-            "hello",
-            "hello2"
-          );
+              [
+                "hello",
+                "hello2"
+              ]
+            );
 
-          // We will have a reference to our button here
-          console.log({ ourSecondButton });
+            // We will have a reference to our button here
+            console.log({ ourSecondButton });
 
-          // We can do this here if we wanted
-          ourSecondButton.setAttribute("key", "value");
+            // We can do this here if we wanted
+            // ourSecondButton.setAttribute("key", "value");
 
-          console.log("End 1");
-        },
-        {}
-      )
+            console.log("End 1");
+          },
+          {}
+        )
+      ]
     );
     console.log("End");
   },
   {}
 );
 
-litRender(
+render(
   node,
   dom.window.document.body
 )

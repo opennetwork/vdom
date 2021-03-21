@@ -1,4 +1,4 @@
-export * from "./lit-render";
+export * from "./render";
 export * from "./options";
 export * from "./native";
 export * from "./jsx";

@@ -1,6 +1,6 @@
 {
   "name": "@opennetwork/vdom",
-  "version": "6.6.0",
+  "version": "7.0.1",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,8 +14,7 @@
   },
   "peerDependencies": {
     "@opennetwork/vnode": "^15.2.0",
-    "iterable": "^5.6.0",
-    "lit-html": "^1.1.2"
+    "iterable": "^5.6.0"
   },
   "dependencies": {},
   "repository": {
@@ -23,16 +22,13 @@
     "url": "https://github.com/opennetwork/vdom.git"
   },
   "devDependencies": {
-    "@opennetwork/vnode": "^15.2.0",
-    "@opennetwork/vnode-fragment": "^4.0.0",
-    "@opennetwork/vnode-hooks": "^4.0.0",
+    "@opennetwork/vnode": "^17.1.2",
     "@types/jsdom": "^12.2.4",
     "esm": "^3.2.25",
     "filehound": "^1.17.3",
     "htm": "^2.2.1",
     "iterable": "^5.6.0",
     "jsdom": "^15.1.1",
-    "lit-html": "^1.1.2",
     "tslint": "^5.20.0",
     "typescript": "^3.6.3"
   }
