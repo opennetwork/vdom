@@ -6,7 +6,6 @@ import {
   isNativeCompatible,
   native
 } from "./native";
-import { asyncExtendedIterable } from "iterable";
 import { Fragment, FragmentVNode } from "@opennetwork/vnode";
 
 export function produce(node: VNode): FragmentVNode | HydratedDOMNativeVNode {
@@ -16,22 +15,24 @@ export function produce(node: VNode): FragmentVNode | HydratedDOMNativeVNode {
       children: produceChildren(node)
     });
   } else if (isNativeCompatible(node)) {
-    return produce(native(undefined, node));
+    return produce(native(node.options, node));
   } else if (node && node.children) {
     return {
+      ...node,
       reference: Fragment,
-      children: produceChildren(node)
+      children: produceChildren(node),
     };
   } else {
     return {
+      ...node,
       reference: Fragment
     };
   }
 }
 
-async function *produceChildren(node: VNode): AsyncIterable<AsyncIterable<FragmentVNode | HydratedDOMNativeVNode>> {
+async function *produceChildren(node: VNode): AsyncIterable<ReadonlyArray<FragmentVNode | HydratedDOMNativeVNode>> {
   for await (const children of node.children) {
-    yield asyncExtendedIterable(children).map(child => produce(child));
+    yield children.map(produce);
   }
 }
 

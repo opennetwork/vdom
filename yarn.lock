@@ -18,21 +18,17 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
-"@opennetwork/vnode-fragment@^4.0.0":
-  version "4.0.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode-fragment/-/vnode-fragment-4.0.0.tgz#f723dca3483962c35d98619304aeb15ef8eedd9d"
-  integrity sha512-fvAKZnH5vUioCVyc0wxl7cyAwrukxUtuE/cQDiR7DBO/lm844Ux2N/Um4srNp+wBKRmK9dTa6yvlzq6sAb4X2g==
+"@opennetwork/progressive-merge@^4.0.3":
+  version "4.0.3"
+  resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-4.0.3.tgz#b95dfacdd2742613879abf01f1a524ceccb45e90"
+  integrity sha512-4iujXwXWQUjVB3CTvB14pE75QUGkPowkoDQ4BA1i483Vwd9Pezi7LHnp8LleotEXawDLkmsLuQOO1kE0MS473g==
 
-"@opennetwork/vnode-hooks@^4.0.0":
-  version "4.0.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode-hooks/-/vnode-hooks-4.0.0.tgz#09048aab9f5bcd28e96283aa52b20e1b2cb62e15"
-  integrity sha512-pT1RK7A1TzyZLnAiHElgVn/SQeDtPkd19zdkArtZ2P5Yk8gJa015FiX1+1L3hcLm7UsNinCJfGtaNP9AZ9dKHw==
-
-"@opennetwork/vnode@^15.2.0":
-  version "15.2.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-15.2.0.tgz#ac44aba7ebf9baffce7a05f7aac999fc226e77e7"
-  integrity sha512-/Lb6d+y2a//54Dom5Kb0MnNOX5ongL4aFivnbS4ZK+NGEHBJnKhJ5PD3m4IHKopTE4st9xY/uWFpfNzQuT1pAw==
+"@opennetwork/vnode@^17.1.2":
+  version "17.1.2"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-17.1.2.tgz#89164221c3284bfb140c77fcd3d538e48d752131"
+  integrity sha512-exxIGO5b7tiGn5nu69JVX5P58MrkGqsBLXTEI2uBWWmMnuGMG3EBveAh1h+uu+TadjwJzdouxSLVQRhzGcHlXw==
   dependencies:
+    "@opennetwork/progressive-merge" "^4.0.3"
     iterable "^5.2.2"
 
 "@types/jsdom@^12.2.4":

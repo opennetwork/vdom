@@ -15,7 +15,7 @@ const HydratedDOMNativeVNodeSymbol = Symbol("Hydrated DOM Native VNode");
 
 export interface HydratedDOMNativeVNode extends DOMNativeVNode {
   hydrated: true;
-  children?: AsyncIterable<AsyncIterable<HydratedDOMNativeVNode>>;
+  children?: AsyncIterable<ReadonlyArray<HydratedDOMNativeVNode>>;
   [HydratedDOMNativeVNodeSymbol]: true;
 }
 
@@ -53,7 +53,7 @@ export function isNativeCompatible(vnode: VNode): boolean {
   return !!getNativeOptions(vnode);
 }
 
-export function native(options: unknown, children: VNode): VNode {
+export function native(options: object, children: VNode): VNode {
   const nativeOptions = getNativeOptions(children);
   if (!nativeOptions) {
     return children;
