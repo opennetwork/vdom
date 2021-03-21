@@ -14,8 +14,7 @@
   },
   "peerDependencies": {
     "@opennetwork/vnode": "^15.2.0",
-    "iterable": "^5.6.0",
-    "lit-html": "^1.1.2"
+    "iterable": "^5.6.0"
   },
   "dependencies": {},
   "repository": {
@@ -30,7 +29,6 @@
     "htm": "^2.2.1",
     "iterable": "^5.6.0",
     "jsdom": "^15.1.1",
-    "lit-html": "^1.1.2",
     "tslint": "^5.20.0",
     "typescript": "^3.6.3"
   }
