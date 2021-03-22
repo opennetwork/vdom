@@ -1,6 +1,6 @@
 import { Fragment, FragmentVNode, isFragmentVNode, VNode } from "@opennetwork/vnode";
-import { produce } from "../produce";
-import { assertHydratedDOMNativeVNode } from "../native";
+import { FragmentHydratedDOMNativeVNode, produce } from "../produce";
+import { assertHydratedDOMNativeVNode, HydratedDOMNativeVNode } from "../native";
 import { Cancellable, SimpleCancellable } from "iterable";
 import { getDocumentNode, isElement } from "../document-node";
 import { setAttributes } from "../attributes";
@@ -29,7 +29,6 @@ export async function render(initialNode: VNode | undefined, root: Element, init
           break updateCycle;
         }
         const child = children[index];
-        assertHydratedDOMNativeVNode(child);
         const currentDocumentNode = childrenNodes.get(child);
         if (currentDocumentNode && root.childNodes.item(index) === currentDocumentNode) {
           continue; // Nothing to do, we already have a valid mounted document node for this VNode
@@ -110,7 +109,7 @@ export async function render(initialNode: VNode | undefined, root: Element, init
 }
 
 
-function getFragment(initialNode: VNode): FragmentVNode {
+function getFragment(initialNode: VNode): FragmentHydratedDOMNativeVNode {
   const node = produce(initialNode);
 
   if (isFragmentVNode(node)) {
@@ -119,10 +118,10 @@ function getFragment(initialNode: VNode): FragmentVNode {
 
   return {
     reference: Fragment,
-    children: children()
+    children: children(node)
   };
 
-  async function *children() {
+  async function *children(node: HydratedDOMNativeVNode) {
     yield Object.freeze([node]);
   }
 }
