@@ -89,8 +89,6 @@ export async function render(initialNode: VNode | undefined, root: Element, init
       Promise.all(childrenPromises),
       Promise.all(forgottenPromises)
     ]);
-  } catch (e) {
-    console.error(e);
   } finally {
     // Cancel all children
     childrenCancellables

@@ -23,6 +23,11 @@
   resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-4.0.3.tgz#b95dfacdd2742613879abf01f1a524ceccb45e90"
   integrity sha512-4iujXwXWQUjVB3CTvB14pE75QUGkPowkoDQ4BA1i483Vwd9Pezi7LHnp8LleotEXawDLkmsLuQOO1kE0MS473g==
 
+"@opennetwork/progressive-merge@^4.0.4":
+  version "4.0.4"
+  resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-4.0.4.tgz#c564f1367bfe34f92e37b3465f375a808d905535"
+  integrity sha512-OxqJur/+aNpDTDz+xFxuC+oJOiLWwE358tq1ZZNcHFvJs4pgAO410+dmpMNnhIv2JJUPqRHQyur435tlDqCvHQ==
+
 "@opennetwork/vnode@^17.1.2":
   version "17.1.2"
   resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-17.1.2.tgz#89164221c3284bfb140c77fcd3d538e48d752131"

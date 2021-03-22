@@ -22,7 +22,7 @@
     "url": "https://github.com/opennetwork/vdom.git"
   },
   "devDependencies": {
-    "@opennetwork/progressive-merge": "^4.0.3",
+    "@opennetwork/progressive-merge": "^4.0.4",
     "@opennetwork/vnode": "^17.1.2",
     "@types/jsdom": "^12.2.4",
     "@types/node": "^14.14.35",
