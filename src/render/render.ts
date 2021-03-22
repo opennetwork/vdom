@@ -1,6 +1,6 @@
 import { Fragment, FragmentVNode, isFragmentVNode, VNode } from "@opennetwork/vnode";
 import { produce } from "../produce";
-import { isHydratedDOMNativeVNode } from "../native";
+import { assertHydratedDOMNativeVNode } from "../native";
 import { Cancellable, SimpleCancellable } from "iterable";
 import { getDocumentNode, isElement } from "../document-node";
 import { setAttributes } from "../attributes";
@@ -29,9 +29,7 @@ export async function render(initialNode: VNode | undefined, root: Element, init
           break updateCycle;
         }
         const child = children[index];
-        if (!isHydratedDOMNativeVNode(child)) {
-          throw new Error("Expected HydratedDOMNativeVNode");
-        }
+        assertHydratedDOMNativeVNode(child);
         const currentDocumentNode = childrenNodes.get(child);
         if (currentDocumentNode && root.childNodes.item(index) === currentDocumentNode) {
           continue; // Nothing to do, we already have a valid mounted document node for this VNode
@@ -91,6 +89,8 @@ export async function render(initialNode: VNode | undefined, root: Element, init
       Promise.all(childrenPromises),
       Promise.all(forgottenPromises)
     ]);
+  } catch (e) {
+    console.error(e);
   } finally {
     // Cancel all children
     childrenCancellables

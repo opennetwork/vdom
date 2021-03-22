@@ -41,6 +41,12 @@ export function isHydratedDOMNativeVNode(node: VNode): node is HydratedDOMNative
   );
 }
 
+export function assertHydratedDOMNativeVNode(node: VNode): asserts node is HydratedDOMNativeVNode {
+  if (!isHydratedDOMNativeVNode(node)) {
+    throw new Error("Expected HydratedDOMNativeVNode");
+  }
+}
+
 export function isDOMNativeVNode(node: VNode): node is DOMNativeVNode {
   return (
     isNativeVNode(node) &&

@@ -2,6 +2,7 @@ import dom from "./jsdom.js";
 import { render } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
 import {clean} from "./clean.js";
+import { deferred } from "@opennetwork/progressive-merge/dist/deferred.js";
 
 const context = {};
 
@@ -26,16 +27,13 @@ const node = createVNode(
           async function *() {
             console.log("Start 1");
 
-            let ourFirstButton;
-            const node = createVNode(
+            const { promise: firstButtonPromise, resolve: onBeforeRenderFirstButton } = deferred();
+            yield createVNode(
               context,
               "somename",
               {
                 reference: "a",
-                onBeforeRender: mounted => {
-                  console.log("button a", { mounted });
-                  ourFirstButton = mounted;
-                },
+                onBeforeRender: onBeforeRenderFirstButton,
                 attributes: {
                   type: "somename"
                 }
@@ -44,25 +42,21 @@ const node = createVNode(
               "hello",
               "hello"
             );
-            console.log({ node });
-            yield node;
+            const firstButton = await firstButtonPromise;
 
             // We will have a reference to our button here
-            console.log({ ourFirstButton });
+            console.log({ firstButton });
 
             // We can do this here if we wanted
             // ourFirstButton.setAttribute("key", "value");
 
-            let ourSecondButton;
+            const { promise: secondButtonPromise, resolve: onBeforeRenderSecondButton } = deferred();
             yield createVNode(
               context,
               "button",
               {
                 reference: "b",
-                onBeforeRender: mounted => {
-                  console.log("button b", { mounted });
-                  ourSecondButton = mounted;
-                },
+                onBeforeRender: onBeforeRenderSecondButton,
                 attributes: {
                   type: "button"
                 }
@@ -72,9 +66,10 @@ const node = createVNode(
                 "hello2"
               ]
             );
+            const secondButton = await secondButtonPromise;
 
             // We will have a reference to our button here
-            console.log({ ourSecondButton });
+            console.log({ secondButton });
 
             // We can do this here if we wanted
             // ourSecondButton.setAttribute("key", "value");
