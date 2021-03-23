@@ -1,5 +1,5 @@
-import { HydratedDOMNativeVNode } from "./native";
 import { isPromise } from "iterable";
+import { NativeOptionsVNode } from "./options";
 
 export function isNode(value: unknown): value is Node {
   function isNodeLike(value: unknown): value is { nodeType?: unknown, TEXT_NODE?: unknown, ELEMENT_NODE?: unknown } {
@@ -21,7 +21,7 @@ export function isElement(node?: unknown): node is Element {
   return isNode(node) && typeof node.nodeType === "number" && node.nodeType === node.ELEMENT_NODE;
 }
 
-export function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNode): given is (Text | Element) {
+export function isExpectedNode(expected: NativeOptionsVNode, given: ChildNode): given is (Text | Element) {
   if (!given) {
     return false;
   }
@@ -37,7 +37,7 @@ export function isExpectedNode(expected: HydratedDOMNativeVNode, given: ChildNod
   return expected.source === given.localName;
 }
 
-export async function getDocumentNode(root: Element, node: HydratedDOMNativeVNode): Promise<Text | Element> {
+export async function getDocumentNode(root: Element, node: NativeOptionsVNode): Promise<Text | Element> {
   if (typeof node.options.getDocumentNode === "function") {
     let result = node.options.getDocumentNode(root, node);
     if (isPromise(result)) {

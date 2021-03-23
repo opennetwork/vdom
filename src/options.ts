@@ -1,5 +1,4 @@
-import { HydratedDOMNativeVNode } from "./native";
-import { isFragmentVNode, isScalarVNode, isSourceReference, VNode } from "@opennetwork/vnode";
+import { isFragmentVNode, isScalarVNode, VNode } from "@opennetwork/vnode";
 import { isElement, isText } from "./document-node";
 
 export type DOMNativeVNodeType = "Element" | "Text";
@@ -7,7 +6,7 @@ export type DOMNativeVNodeInstance = Element | Text;
 
 export type NativeAttributes = Record<string, string | boolean | number | undefined>;
 
-export interface NativeOptions {
+export interface NativeOptions extends Record<string, unknown> {
   type: DOMNativeVNodeType;
   is?: string;
   instance?: DOMNativeVNodeInstance;
@@ -16,8 +15,13 @@ export interface NativeOptions {
   onConnected?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
   onRendered?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
   onDisconnected?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  getDocumentNode?: (root: Element, node: HydratedDOMNativeVNode) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>;
+  getDocumentNode?: (root: Element, node: NativeOptionsVNode) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>;
   attributes?: NativeAttributes;
+}
+
+export interface NativeOptionsVNode extends VNode {
+  source: string;
+  options: NativeOptions;
 }
 
 export function isNativeAttributeValue(value: unknown): value is (string | boolean | number | undefined) {
@@ -121,22 +125,25 @@ export function isNativeOptions(options: object): options is NativeOptions {
   );
 }
 
-export function getNativeOptions(vnode: VNode): NativeOptions {
+export function getNativeOptions(vnode: VNode): NativeOptions | undefined {
   if (isFragmentVNode(vnode)) {
     return undefined;
   }
 
-  // Everything but a symbol can be a node, if you want to reference a symbol for a node, use a custom factory
-  if (typeof vnode.source === "symbol" || !isSourceReference(vnode.source)) {
+  if (typeof vnode.source !== "string") {
     return undefined;
   }
 
   // If we have no given options, then we have a text node
   if (isScalarVNode(vnode) && !vnode.options && typeof vnode.source !== "symbol") {
-    return {
-      ...vnode.options,
-      type: "Text"
-    };
+    if (isTypeOptions(vnode.options, "Text")) {
+      return vnode.options;
+    } else {
+      return {
+        ...vnode.options,
+        type: "Text"
+      };
+    }
   }
 
   // We can only create elements from string sources
@@ -144,19 +151,37 @@ export function getNativeOptions(vnode: VNode): NativeOptions {
     return undefined;
   }
 
-  return {
-    ...vnode.options,
-    type: "Element",
-    is: isIsOptions(vnode.options) ? vnode.options.is : undefined
-  };
+  if (isTypeOptions(vnode.options, "Element") && isIsOptions(vnode.options)) {
+    return vnode.options;
+  } else {
+    return {
+      ...vnode.options,
+      type: "Element",
+      is: undefined
+    };
+  }
 }
 
-function isIsOptions(options: unknown): options is { is: string } {
+
+function isIsOptions(options: unknown): options is { is: string | undefined } {
   function isIsOptionsLike(options: unknown): options is { is?: unknown } {
     return !!options;
   }
   return (
     isIsOptionsLike(options) &&
-    typeof options.is === "string"
+    (
+      typeof options.is === "string" ||
+      typeof options.is === "undefined"
+    )
+  );
+}
+
+function isTypeOptions<T extends string>(options: unknown, type: T): options is { type: T } {
+  function isTypeOptionsLike(options: unknown): options is { type?: unknown } {
+    return !!options;
+  }
+  return (
+    isTypeOptionsLike(options) &&
+    options.type === type
   );
 }

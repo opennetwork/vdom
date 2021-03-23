@@ -1,10 +1,12 @@
 import dom from "./jsdom.js";
-import { render } from "../dist/index.js";
+import { render, DOMContext } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
 import {clean} from "./clean.js";
 import { deferred } from "@opennetwork/progressive-merge/dist/deferred.js";
 
-const context = {};
+const context = new DOMContext({
+  root: dom.window.document.body
+});
 
 const node = createVNode(
   context,
@@ -87,7 +89,9 @@ const node = createVNode(
 
 render(
   node,
-  dom.window.document.body
+  {
+    root: dom.window.document.body
+  }
 )
   .then(() => {
     clean(dom.window.document.body);

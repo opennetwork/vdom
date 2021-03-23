@@ -1,76 +1,54 @@
+import { VNode } from "@opennetwork/vnode";
+import { getNativeOptions, NativeOptions } from "./options";
 import {
-  isNativeVNode,
-  NativeVNode,
-  VNode
-} from "@opennetwork/vnode";
-import { asyncExtendedIterable } from "iterable";
-import { NativeOptions, isNativeOptions, getNativeOptions } from "./options";
+  ElementDOMNative,
+  ElementDOMNativeVNode,
+  isElementDOMNativeCompatibleVNode,
+  isElementDOMNativeVNode
+} from "./element";
+import { FragmentDOMNative, FragmentDOMNativeVNode, isFragmentDOMNativeVNode } from "./fragment";
 
-export interface DOMNativeVNode extends NativeVNode {
-  source: string;
-  options: NativeOptions;
-}
-
-const HydratedDOMNativeVNodeSymbol = Symbol("Hydrated DOM Native VNode");
-
-export interface HydratedDOMNativeVNode extends DOMNativeVNode {
-  hydrated: true;
-  children?: AsyncIterable<ReadonlyArray<HydratedDOMNativeVNode>>;
-  [HydratedDOMNativeVNodeSymbol]: true;
-}
-
-export function getHydratedDOMNativeVNode(node: DOMNativeVNode): HydratedDOMNativeVNode {
-  const nextNode: DOMNativeVNode & { [HydratedDOMNativeVNodeSymbol]: true } = {
-    ...node,
-    hydrated: true,
-    [HydratedDOMNativeVNodeSymbol]: true
-  };
-  if (!isHydratedDOMNativeVNode(nextNode)) {
-    throw new Error("isHydratedDOMNativeVNode returned false when we expected it to return true");
-  }
-  return nextNode;
-}
-
-export function isHydratedDOMNativeVNode(node: VNode): node is HydratedDOMNativeVNode {
-  function isHydratedDOMNativeVNodeLike(node: VNode): node is DOMNativeVNode & { [HydratedDOMNativeVNodeSymbol]?: unknown } {
-    return isDOMNativeVNode(node);
-  }
-  return (
-    isHydratedDOMNativeVNodeLike(node) &&
-    node[HydratedDOMNativeVNodeSymbol] === true
-  );
-}
-
-export function assertHydratedDOMNativeVNode(node: VNode): asserts node is HydratedDOMNativeVNode {
-  if (!isHydratedDOMNativeVNode(node)) {
-    throw new Error("Expected HydratedDOMNativeVNode");
-  }
-}
+export type DOMNativeVNode = ElementDOMNativeVNode | FragmentDOMNativeVNode;
 
 export function isDOMNativeVNode(node: VNode): node is DOMNativeVNode {
-  return (
-    isNativeVNode(node) &&
-    typeof node.source === "string" &&
-    isNativeOptions(node.options)
-  );
+  return isElementDOMNativeVNode(node) || isFragmentDOMNativeVNode(node);
+}
+
+export function assertDOMNativeVNode(node: VNode): asserts node is DOMNativeVNode {
+  if (!isDOMNativeVNode(node)) {
+    throw new Error("Expected DOMNativeVNode");
+  }
 }
 
 export function isNativeCompatible(vnode: VNode): boolean {
   return !!getNativeOptions(vnode);
 }
 
-export function native(options: object, children: VNode): VNode {
-  const nativeOptions = getNativeOptions(children);
-  if (!nativeOptions) {
-    return children;
+export function Native(options: Partial<NativeOptions>, node: VNode): DOMNativeVNode {
+  if (isDOMNativeVNode(node)) {
+    return node;
+  }
+  const nativeOptions = getNativeOptions(node);
+  if (nativeOptions && isElementDOMNativeCompatibleVNode(node)) {
+    return ElementDOMNative(
+      isNativeOptions(node.options) ? node.options : {
+        ...node.options,
+        ...nativeOptions
+      },
+      node
+    );
   } else {
-    return {
-      source: String(children.source),
-      reference: children.reference || Symbol("@opennetwork/vdom/native"),
-      native: true,
-      options: nativeOptions,
-      // We're going to git these children a few times, so we want to retain our values
-      children: asyncExtendedIterable(children.children).retain()
-    };
+    return FragmentDOMNative(
+      options,
+      node
+    );
+  }
+
+  function isNativeOptions(options: unknown): options is NativeOptions {
+    return options === nativeOptions;
   }
 }
+
+
+
+

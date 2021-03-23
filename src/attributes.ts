@@ -1,7 +1,6 @@
-import { HydratedDOMNativeVNode } from "./native";
-import { isNativeAttributesObject } from "./options";
+import { isNativeAttributesObject, NativeOptionsVNode } from "./options";
 
-export function setAttributes(node: HydratedDOMNativeVNode, documentNode: Element) {
+export function setAttributes(node: NativeOptionsVNode, documentNode: Element) {
   const attributes = node.options.attributes;
 
   if (!isNativeAttributesObject(attributes)) {

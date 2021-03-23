@@ -28,13 +28,14 @@
   resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-4.0.4.tgz#c564f1367bfe34f92e37b3465f375a808d905535"
   integrity sha512-OxqJur/+aNpDTDz+xFxuC+oJOiLWwE358tq1ZZNcHFvJs4pgAO410+dmpMNnhIv2JJUPqRHQyur435tlDqCvHQ==
 
-"@opennetwork/vnode@^17.1.2":
-  version "17.1.2"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-17.1.2.tgz#89164221c3284bfb140c77fcd3d538e48d752131"
-  integrity sha512-exxIGO5b7tiGn5nu69JVX5P58MrkGqsBLXTEI2uBWWmMnuGMG3EBveAh1h+uu+TadjwJzdouxSLVQRhzGcHlXw==
+"@opennetwork/vnode@^17.2.0":
+  version "17.2.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-17.2.0.tgz#1a29a8342f94ca3790822caf5599e853e4303905"
+  integrity sha512-42tu48tD/I2eOSchsq8dWBTGegyLEcSW77B2VSSdLAeeS1eDYsOOXwRHq6Uk76cnQ4nx1Uq+HpOZB1gVOeSThA==
   dependencies:
     "@opennetwork/progressive-merge" "^4.0.3"
     iterable "^5.2.2"
+    microtask-collector "^1.0.4"
 
 "@types/jsdom@^12.2.4":
   version "12.2.4"
@@ -602,6 +603,11 @@ lodash@^4.17.10, lodash@^4.17.11:
   version "4.17.15"
   resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.15.tgz#b447f6670a0455bbfeedd11392eff330ea097548"
   integrity sha512-8xOcRHvCjnocdS5cpwXQXVzmmh5e5+saE2QGoeQmbKmRS6J3VQppPOIt0MnmE+4xlZoumy0GPG0D0MVIQbNA1A==
+
+microtask-collector@^1.0.4:
+  version "1.0.4"
+  resolved "https://registry.npmjs.org/microtask-collector/-/microtask-collector-1.0.4.tgz#c92751f5171d55477cae7b613435b735b326fdd3"
+  integrity sha512-j49//GFbQnRTZSrKgmgp5q1SAewmr9+ZQ4+Ta6jf7CS29Z8POqNrI99X3ztz1SZqFjr9kMzZQjy7+T1X33KgIA==
 
 mime-db@1.40.0:
   version "1.40.0"
