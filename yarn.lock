@@ -18,24 +18,15 @@
     esutils "^2.0.2"
     js-tokens "^4.0.0"
 
-"@opennetwork/progressive-merge@^4.0.3":
-  version "4.0.3"
-  resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-4.0.3.tgz#b95dfacdd2742613879abf01f1a524ceccb45e90"
-  integrity sha512-4iujXwXWQUjVB3CTvB14pE75QUGkPowkoDQ4BA1i483Vwd9Pezi7LHnp8LleotEXawDLkmsLuQOO1kE0MS473g==
-
 "@opennetwork/progressive-merge@^4.0.4":
   version "4.0.4"
   resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-4.0.4.tgz#c564f1367bfe34f92e37b3465f375a808d905535"
   integrity sha512-OxqJur/+aNpDTDz+xFxuC+oJOiLWwE358tq1ZZNcHFvJs4pgAO410+dmpMNnhIv2JJUPqRHQyur435tlDqCvHQ==
 
-"@opennetwork/vnode@^17.2.0":
-  version "17.2.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-17.2.0.tgz#1a29a8342f94ca3790822caf5599e853e4303905"
-  integrity sha512-42tu48tD/I2eOSchsq8dWBTGegyLEcSW77B2VSSdLAeeS1eDYsOOXwRHq6Uk76cnQ4nx1Uq+HpOZB1gVOeSThA==
-  dependencies:
-    "@opennetwork/progressive-merge" "^4.0.3"
-    iterable "^5.2.2"
-    microtask-collector "^1.0.4"
+"@opennetwork/vnode@^18.1.0":
+  version "18.1.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-18.1.0.tgz#e5313df915d6910642c76e0ba4f58a55d1fbe754"
+  integrity sha512-pBMiqRcStHoC7VwXPp0+QK+TJddH96qUmoICj+KZtYTIzLA9UmIzKL9fvQwF5eyrlZ72Fg2kZs8OD7UxnkJ4HA==
 
 "@types/jsdom@^12.2.4":
   version "12.2.4"
@@ -500,11 +491,6 @@ isstream@~0.1.2:
   version "0.1.2"
   resolved "https://registry.npmjs.org/isstream/-/isstream-0.1.2.tgz#47e63f7af55afa6f92e1500e690eb8b8529c099a"
   integrity sha1-R+Y/evVa+m+S4VAOaQ64uFKcCZo=
-
-iterable@^5.2.2:
-  version "5.2.2"
-  resolved "https://registry.npmjs.org/iterable/-/iterable-5.2.2.tgz#6f38e7f509193cc611eb6b968059ba197d84ad2e"
-  integrity sha512-QsXb9q65zwEtJMI0YWPdQYg9pwjW0v1o5eoLm1kdmUQNENz0l4q6o3ZCG8TrOxv0F9eKmDYx2/nvI8TrvNYCHg==
 
 iterable@^5.6.0:
   version "5.6.0"

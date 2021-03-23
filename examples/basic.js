@@ -1,10 +1,10 @@
 import dom from "./jsdom.js";
-import { render, DOMContext } from "../dist/index.js";
+import { render, DOMVContext } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
 import {clean} from "./clean.js";
 import { deferred } from "@opennetwork/progressive-merge/dist/deferred.js";
 
-const context = new DOMContext({
+const context = new DOMVContext({
   root: dom.window.document.body
 });
 
@@ -23,7 +23,7 @@ const node = createVNode(
         onBeforeRender: mounted => console.log("div", { mounted })
       },
       [
-        createVNode(context, "button", {}),
+        createVNode(context, "button", { reference: "button1" }, "some text", "text 2"),
         createVNode(
           context,
           async function *() {
@@ -44,10 +44,10 @@ const node = createVNode(
               "hello",
               "hello"
             );
-            const firstButton = await firstButtonPromise;
+            // const firstButton = await firstButtonPromise;
 
             // We will have a reference to our button here
-            console.log({ firstButton });
+            // console.log({ firstButton });
 
             // We can do this here if we wanted
             // ourFirstButton.setAttribute("key", "value");
@@ -68,7 +68,7 @@ const node = createVNode(
                 "hello2"
               ]
             );
-            const secondButton = await secondButtonPromise;
+            // const secondButton = await secondButtonPromise;
 
             // We will have a reference to our button here
             console.log({ secondButton });
@@ -89,14 +89,13 @@ const node = createVNode(
 
 render(
   node,
-  {
-    root: dom.window.document.body
-  }
+  context
 )
   .then(() => {
     clean(dom.window.document.body);
     console.log("Complete");
     console.log(dom.serialize());
+    dom.window.document.body.innerHTML = "";
   })
   .catch(error => {
     clean(dom.window.document.body);
