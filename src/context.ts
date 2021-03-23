@@ -1,4 +1,13 @@
-import { createVContextEvents, Tree, VContext, VContextEventsPair, VNode, WeakVContext, hydrateChildren } from "@opennetwork/vnode";
+import {
+  createVContextEvents,
+  Tree,
+  VContext,
+  VContextEventsPair,
+  VNode,
+  WeakVContext,
+  hydrateChildren,
+  SourceReference
+} from "@opennetwork/vnode";
 import { assertDOMNativeVNode } from "./native";
 import { isFragmentDOMNativeVNode } from "./fragment";
 import { isElementDOMNativeVNode } from "./element";
@@ -13,6 +22,8 @@ export interface RenderOptions {
 
 export class DOMVContext extends WeakVContext {
 
+  private committing: Promise<void> = Promise.resolve();
+
   constructor(private options: RenderOptions, weak?: WeakMap<object, unknown>, eventsPair: VContextEventsPair = createVContextEvents()) {
     super(weak, eventsPair);
   }
@@ -23,8 +34,11 @@ export class DOMVContext extends WeakVContext {
     }
     assertDOMNativeVNode(node);
     if (isFragmentDOMNativeVNode(node)) {
-      return this.hydrateChildren(this.options.root, node, tree);
+      return this.commitChildren(this.options.root, node, tree);
     } else if (isElementDOMNativeVNode(node)) {
+      if (!tree) {
+        throw new Error("Expected a tree with ElementDOMNativeVNode, entry point should be a FragmentDOMNativeVNode");
+      }
       this.eventsTarget.hydrate.add({
         node,
         tree
@@ -35,15 +49,11 @@ export class DOMVContext extends WeakVContext {
       }
       const documentNode = await this.getDocumentNode(node);
       await this.commit(node, documentNode, tree);
-      if (isElement(documentNode)) {
-        await this.hydrateChildren(documentNode, node, tree);
-        await this.complete(documentNode, tree);
-      }
     }
   }
 
   private async getDocumentNode(node: NativeOptionsVNode) {
-    const map = this.getVNodeWeakMap(node);
+    const map = this.getWeakMap(node);
     const existingDocumentNode = map.get(this.options.root);
     if ((isElement(existingDocumentNode) || isText(existingDocumentNode)) && isExpectedNode(node, existingDocumentNode)) {
       return existingDocumentNode;
@@ -53,13 +63,13 @@ export class DOMVContext extends WeakVContext {
     return documentNode;
   }
 
-  private getVNodeWeakMap(node: NativeOptionsVNode): WeakMap<object, unknown> {
-    const existing = this.weak.get(node);
+  private getWeakMap(key: object): WeakMap<object, unknown> {
+    const existing = this.weak.get(key);
     if (existing instanceof WeakMap) {
       return existing;
     }
     const map = new WeakMap();
-    this.weak.set(node, map);
+    this.weak.set(key, map);
     return map;
   }
 
@@ -79,48 +89,160 @@ export class DOMVContext extends WeakVContext {
       }
     );
     this.weak.set(documentNode, childContext);
+    const map = this.getWeakMap(childContext);
+    map.set(documentNode, createDocumentNodeDetails());
     return childContext;
   }
 
-  async hydrateChildren(documentNode: Element, node: VNode, tree?: Tree) {
+  private getElementDetails(documentNode: Element, tree?: Tree): ElementDetails {
+    const map = this.getWeakMap(this);
+    let elementDetails = map.get(documentNode);
+    if (!tree && !elementDetails) {
+      // If we have no tree, we can make them on the fly
+      elementDetails = createDocumentNodeDetails();
+      map.set(documentNode, elementDetails);
+    }
+
+    // If we are getting details from within a tree, we expect them!
+    assertElementDetails(elementDetails);
+
+    return elementDetails;
+
+    function assertElementDetails(details: unknown): asserts details is ElementDetails {
+      if (!isElementDetails(details)) {
+        throw new Error("Expected ElementDetails");
+      }
+    }
+
+    function isElementDetails(details: unknown): details is ElementDetails {
+      function isElementDetailsLike(details: unknown): details is { rendered: unknown } {
+        return !!details;
+      }
+      return isElementDetailsLike(details) && details.rendered instanceof Map;
+    }
+  }
+
+  async commit(node: NativeOptionsVNode, documentNode: Element | Text, tree: Tree) {
+    const { root } = this.options;
+    // We are committing into the root element, we want to reference its details.
+    const elementDetails = this.getElementDetails(root);
+
+    const promise = this.committing.then(task);
+    this.committing = promise;
+    await promise;
+    if (this.committing === promise) {
+      // Does this help?
+      this.committing = Promise.resolve();
+    }
+    await (this.committing = this.committing.then(task));
+
+    if (isElement(documentNode)) {
+      await this.commitChildren(documentNode, node, tree);
+    }
+
+    async function task() {
+      const currentDocumentNode = elementDetails.rendered.get(node.reference);
+      if (currentDocumentNode) {
+        // We have a known node for this reference, lets replace that
+        if (documentNode !== currentDocumentNode) {
+          root.replaceChild(
+            documentNode,
+            currentDocumentNode
+          );
+          // Set rendered after adding to DOM, before setting attributes
+          elementDetails.rendered.set(node.reference, documentNode);
+        }
+        if (isElement(documentNode)) {
+          await setAttributes(node, documentNode);
+        }
+      } else {
+        // We aren't included yet, lets see where we start
+
+        // Because the node is not included, we can set our attributes ahead of time
+        if (isElement(documentNode)) {
+          await setAttributes(node, documentNode);
+        }
+
+        // If there is nothing rendered, lets append
+        if (elementDetails.rendered.size === 0) {
+          // When appending we can set our attributes beforehand
+          root.appendChild(documentNode);
+        } else {
+
+          const treeIndex = tree.children.indexOf(node.reference);
+          const treeAfter = tree.children.slice(treeIndex + 1);
+          const renderedAfter = treeAfter.find(isRendered);
+
+          if (renderedAfter) {
+            const documentNodeAfter = elementDetails.rendered.get(renderedAfter);
+            root.insertBefore(documentNode, documentNodeAfter);
+          } else {
+            const treeBeforeReversed = tree.children.slice(0, treeIndex).reverse();
+            const renderedBefore = treeBeforeReversed.find(isRendered);
+            if (!renderedBefore) {
+              // Nothing before it, lets insert to the front
+              root.insertBefore(
+                documentNode,
+                root.firstChild
+              );
+            } else {
+              const documentNodeBefore = elementDetails.rendered.get(renderedBefore);
+              const nextSibling = documentNodeBefore.nextSibling;
+              if (nextSibling) {
+                // The element before has a next sibling, and we don't know about it, so lets
+                // insert before this
+                root.insertBefore(
+                  documentNode,
+                  nextSibling
+                );
+              } else {
+                // The element before is the last child
+                root.appendChild(
+                  documentNode
+                );
+              }
+            }
+
+          }
+        }
+        // Set rendered after added to DOM
+        elementDetails.rendered.set(node.reference, documentNode);
+      }
+
+      // This will only run for the first child that was committed, each after will have no
+      // removable until we have a different tree
+      for (const [reference, removableDocumentNode] of getRemovableDocumentNodes()) {
+        root.removeChild(removableDocumentNode);
+        elementDetails.rendered.delete(reference);
+      }
+    }
+
+    function isRendered(reference: SourceReference) {
+      return elementDetails.rendered.has(reference);
+    }
+
+    function getRemovableDocumentNodes() {
+      const renderedReferences = [...elementDetails.rendered.keys()];
+      return renderedReferences
+        .filter(reference => !tree.children.includes(reference))
+        .map((reference): [SourceReference, Element | Text] => [reference, elementDetails.rendered.get(reference)]);
+    }
+  }
+
+  async commitChildren(documentNode: Element, node: VNode, tree?: Tree) {
     await hydrateChildren(this.childContext(documentNode), node, tree);
   }
 
-  async commit(node: NativeOptionsVNode, documentNode: Element | Text, tree?: Tree) {
-    const { root } = this.options;
-    const index = tree?.children.indexOf(node.reference) ?? -1;
-    if (index === -1) {
-      throw new Error("Could not find reference in tree");
-    }
-    if (index > 0 && root.childNodes.length < index) {
-      throw new Error(`Expected ${index} children`);
-    }
-    if (root.childNodes.length <= index) {
-      root.appendChild(documentNode);
-    } else {
-      const currentDocumentNode = root.childNodes.item(index);
-      if (documentNode !== currentDocumentNode) {
-        root.replaceChild(
-          documentNode,
-          currentDocumentNode
-        );
-      }
-    }
-    if (isElement(documentNode)) {
-      await setAttributes(node, documentNode);
-    }
-  }
+}
 
-  async complete(documentNode: Element | Text, tree?: Tree) {
-    let index = documentNode.childNodes.length - 1;
-    while (index > tree.children.length) {
-      const lastChild = documentNode.lastChild;
-      if (!lastChild) break;
-      documentNode.removeChild(lastChild);
-      index -= 1;
-    }
-  }
+interface ElementDetails {
+  rendered: Map<SourceReference, Element | Text>;
+}
 
+function createDocumentNodeDetails(): ElementDetails {
+  return {
+    rendered: new Map<SourceReference, Element | Text>()
+  };
 }
 
 function isHydrateOptions(options?: object): options is { hydrate: VContext["hydrate"] } {

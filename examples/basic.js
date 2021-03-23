@@ -78,7 +78,9 @@ const node = createVNode(
 
             console.log("End 1");
           },
-          {}
+          {
+            reference: "gen1"
+          }
         )
       ]
     );
