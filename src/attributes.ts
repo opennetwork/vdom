@@ -27,11 +27,11 @@ export function setAttributes(node: NativeOptionsVNode, documentNode: Element) {
   // Don't use lower keys here as we need to access attributes
   keys.forEach(key => {
     const value = attributes[key];
-    if (value === undefined || value === false) {
+    if (value === undefined || value === false || typeof attributes[key] === "function") {
       toRemove.push(key);
     } else if (value === true) {
       documentNode.setAttribute(key, "");
-    } else if (typeof attributes[key] !== "function") {
+    } else {
       documentNode.setAttribute(key, String(attributes[key]));
     }
   });
