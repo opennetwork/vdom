@@ -141,6 +141,14 @@ export class DOMVContext extends WeakVContext {
     }
 
     async function task() {
+      if (node.options.onBeforeRender) {
+        await node.options.onBeforeRender(documentNode);
+      }
+
+      if (node.options.onDisconnected) {
+        elementDetails.disconnect.set(node.reference, node.options.onDisconnected);
+      }
+
       const currentDocumentNode = elementDetails.rendered.get(node.reference);
       if (currentDocumentNode) {
         // We have a known node for this reference, lets replace that
@@ -214,6 +222,17 @@ export class DOMVContext extends WeakVContext {
       for (const [reference, removableDocumentNode] of getRemovableDocumentNodes()) {
         root.removeChild(removableDocumentNode);
         elementDetails.rendered.delete(reference);
+        const disconnect = elementDetails.disconnect.get(node.reference);
+        if (disconnect) {
+          await disconnect(removableDocumentNode);
+        }
+      }
+
+      if (node.options.onConnected) {
+        await node.options.onConnected(documentNode);
+      }
+      if (node.options.onRendered) {
+        await node.options.onRendered(documentNode);
       }
     }
 
@@ -237,11 +256,13 @@ export class DOMVContext extends WeakVContext {
 
 interface ElementDetails {
   rendered: Map<SourceReference, Element | Text>;
+  disconnect: Map<SourceReference, (documentNode: Element | Text) => void | Promise<void>>;
 }
 
 function createDocumentNodeDetails(): ElementDetails {
   return {
-    rendered: new Map<SourceReference, Element | Text>()
+    rendered: new Map<SourceReference, Element | Text>(),
+    disconnect: new Map<SourceReference, (documentNode: Element | Text) => (void | Promise<void>)>()
   };
 }
 

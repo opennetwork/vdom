@@ -20,7 +20,7 @@ declare global {
       accesskey?: string;
       contenteditable?: BooleanAttribute;
       contextmenu?: string;
-      dir?: "rtl" | "ltr" | "auto";
+      dir?: string;
       draggable?: string;
       dropzone?: string;
       hidden?: string | boolean;
