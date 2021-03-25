@@ -31,7 +31,7 @@ export function setAttributes(node: NativeOptionsVNode, documentNode: Element) {
       toRemove.push(key);
     } else if (value === true) {
       documentNode.setAttribute(key, "");
-    } else {
+    } else if (typeof attributes[key] !== "function") {
       documentNode.setAttribute(key, String(attributes[key]));
     }
   });
