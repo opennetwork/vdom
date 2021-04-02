@@ -23,10 +23,10 @@
   resolved "https://registry.npmjs.org/@opennetwork/progressive-merge/-/progressive-merge-4.0.4.tgz#c564f1367bfe34f92e37b3465f375a808d905535"
   integrity sha512-OxqJur/+aNpDTDz+xFxuC+oJOiLWwE358tq1ZZNcHFvJs4pgAO410+dmpMNnhIv2JJUPqRHQyur435tlDqCvHQ==
 
-"@opennetwork/vnode@^18.1.0":
-  version "18.1.0"
-  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-18.1.0.tgz#e5313df915d6910642c76e0ba4f58a55d1fbe754"
-  integrity sha512-pBMiqRcStHoC7VwXPp0+QK+TJddH96qUmoICj+KZtYTIzLA9UmIzKL9fvQwF5eyrlZ72Fg2kZs8OD7UxnkJ4HA==
+"@opennetwork/vnode@^19.0.0":
+  version "19.0.0"
+  resolved "https://registry.npmjs.org/@opennetwork/vnode/-/vnode-19.0.0.tgz#11c328ad5f78cf39d2b4284ff4f890c93cd7a600"
+  integrity sha512-DlcChvHIqfBTlfK1uPj1Qw3GFEGF5Pwh1HaiQqDRuk1BAQQv4rNGyNkEKLWxschNuUFT1ytC1rEnheukhliCkw==
 
 "@types/jsdom@^12.2.4":
   version "12.2.4"

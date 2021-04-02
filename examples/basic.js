@@ -9,11 +9,9 @@ const context = new DOMVContext({
 });
 
 const node = createVNode(
-  context,
   async function *() {
     console.log("Start");
     yield createVNode(
-      context,
       "div",
       {
         // We can hold onto our own node if we wanted to, or if we already had one
@@ -23,15 +21,13 @@ const node = createVNode(
         onBeforeRender: mounted => console.log("div", { mounted })
       },
       [
-        createVNode(context, "button", { reference: "button1" }, "some text", "text 2"),
+        createVNode("button", { reference: "button1" }, "some text", "text 2"),
         createVNode(
-          context,
           async function *() {
             console.log("Start 1");
 
             const { promise: firstButtonPromise, resolve: onBeforeRenderFirstButton } = deferred();
             yield createVNode(
-              context,
               "somename",
               {
                 reference: "a",
@@ -54,7 +50,6 @@ const node = createVNode(
 
             const { promise: secondButtonPromise, resolve: onBeforeRenderSecondButton } = deferred();
             yield createVNode(
-              context,
               "button",
               {
                 reference: "b",

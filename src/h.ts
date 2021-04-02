@@ -1,4 +1,4 @@
-import { createVNodeWithContext, Source, VNode, VNodeRepresentationSource, Fragment } from "@opennetwork/vnode";
+import { createVNode, Source, VNode, VNodeRepresentationSource, Fragment } from "@opennetwork/vnode";
 import {
   isAttributesOptions,
   isGetDocumentNodeOptions,
@@ -54,5 +54,5 @@ export function h<O extends object>(source: Source<O>, options?: O, ...children:
     return h(source, resultingOptions, ...children);
   }
 
-  return createVNodeWithContext({}, source, options, ...children);
+  return createVNode(source, options, ...children);
 }
