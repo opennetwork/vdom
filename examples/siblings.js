@@ -1,11 +1,10 @@
-import dom from "./jsdom";
-import { litRender } from "../dist/index.js";
-import { withContext } from "@opennetwork/vnode";
+import dom from "./jsdom.js";
+import { render } from "../dist/index.js";
+import { createVNode } from "@opennetwork/vnode";
 import htm from "htm";
-import {clean} from "./clean";
+import {clean} from "./clean.js";
 
-const context = {};
-const h = withContext(context);
+const h = createVNode;
 const html = htm.bind(h);
 
 async function *SiblingFinalInterval() {
@@ -53,7 +52,7 @@ const node = html`
   </main>
 `;
 
-litRender(
+render(
   node,
   dom.window.document.body
 )

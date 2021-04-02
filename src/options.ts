@@ -130,10 +130,6 @@ export function getNativeOptions(vnode: VNode): NativeOptions | undefined {
     return undefined;
   }
 
-  if (typeof vnode.source !== "string") {
-    return undefined;
-  }
-
   // If we have no given options, then we have a text node
   if (isScalarVNode(vnode) && !vnode.options && typeof vnode.source !== "symbol") {
     if (isTypeOptions(vnode.options, "Text")) {
