@@ -73,7 +73,7 @@ export class DOMVContext extends WeakVContext {
     return map;
   }
 
-  private childContext(documentNode: Element) {
+  protected childContext(documentNode: Element) {
     const existingChildContext = this.weak.get(documentNode);
     if (existingChildContext instanceof DOMVContext) {
       return existingChildContext;
