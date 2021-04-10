@@ -130,16 +130,16 @@ export function getNativeOptions(vnode: VNode): NativeOptions | undefined {
     return undefined;
   }
 
+  if (isTypeOptions(vnode.options, "Text")) {
+    return vnode.options;
+  }
+
   // If we have no given options, then we have a text node
   if (isScalarVNode(vnode) && !vnode.options && typeof vnode.source !== "symbol") {
-    if (isTypeOptions(vnode.options, "Text")) {
-      return vnode.options;
-    } else {
-      return {
-        ...vnode.options,
-        type: "Text"
-      };
-    }
+    return {
+      ...vnode.options,
+      type: "Text"
+    };
   }
 
   // We can only create elements from string sources

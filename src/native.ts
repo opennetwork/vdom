@@ -32,8 +32,8 @@ export function Native(options: Partial<NativeOptions>, node: VNode): DOMNativeV
   if (nativeOptions && isElementDOMNativeCompatibleVNode(node)) {
     return ElementDOMNative(
       isNativeOptions(node.options) ? node.options : {
+        ...nativeOptions,
         ...node.options,
-        ...nativeOptions
       },
       node
     );
