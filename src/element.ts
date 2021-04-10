@@ -16,7 +16,7 @@ export interface ElementDOMNativeVNode extends NativeVNode {
   reference: SourceReference;
   source: string;
   options: NativeOptions;
-  children: AsyncIterable<ReadonlyArray<ElementDOMNativeVNode>>;
+  children: AsyncIterable<ElementDOMNativeVNode[]>;
   [ElementDOMNativeVNodeSymbol]: true;
 }
 
