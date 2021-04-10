@@ -7,7 +7,7 @@ const FragmentDOMNativeVNodeSymbol = Symbol("Fragment DOM Native VNode");
 
 export interface FragmentDOMNativeVNode extends NativeVNode {
   reference: typeof Fragment;
-  children: AsyncIterable<ReadonlyArray<ElementDOMNativeVNode>>;
+  children: AsyncIterable<ElementDOMNativeVNode[]>;
   [FragmentDOMNativeVNodeSymbol]: true;
 }
 

@@ -66,7 +66,7 @@ const node = createVNode(
             // const secondButton = await secondButtonPromise;
 
             // We will have a reference to our button here
-            console.log({ secondButton });
+            // console.log({ secondButton });
 
             // We can do this here if we wanted
             // ourSecondButton.setAttribute("key", "value");
