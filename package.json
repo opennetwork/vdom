@@ -1,6 +1,6 @@
 {
   "name": "@opennetwork/vdom",
-  "version": "11.0.4",
+  "version": "11.1.0",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
