@@ -24,7 +24,7 @@ export class DOMVContext extends WeakVContext {
 
   private committing: Promise<void> = Promise.resolve();
 
-  constructor(private options: RenderOptions, weak?: WeakMap<object, unknown>, eventsPair: VContextEventsPair = createVContextEvents()) {
+  constructor(public options: RenderOptions, weak?: WeakMap<object, unknown>, eventsPair: VContextEventsPair = createVContextEvents()) {
     super(weak, eventsPair);
   }
 
@@ -52,7 +52,7 @@ export class DOMVContext extends WeakVContext {
     }
   }
 
-  private async getDocumentNode(node: NativeOptionsVNode) {
+  protected async getDocumentNode(node: NativeOptionsVNode) {
     const map = this.getWeakMap(node);
     const existingDocumentNode = map.get(this.options.root);
     if ((isElement(existingDocumentNode) || isText(existingDocumentNode)) && isExpectedNode(node, existingDocumentNode)) {
@@ -63,7 +63,7 @@ export class DOMVContext extends WeakVContext {
     return documentNode;
   }
 
-  private getWeakMap(key: object): WeakMap<object, unknown> {
+  protected getWeakMap(key: object): WeakMap<object, unknown> {
     const existing = this.weak.get(key);
     if (existing instanceof WeakMap) {
       return existing;
@@ -94,7 +94,7 @@ export class DOMVContext extends WeakVContext {
     return childContext;
   }
 
-  private getElementDetails(documentNode: Element, tree?: Tree): ElementDetails {
+  protected getElementDetails(documentNode: Element, tree?: Tree): ElementDetails {
     const map = this.getWeakMap(this);
     let elementDetails = map.get(documentNode);
     if (!tree && !elementDetails) {
