@@ -14,7 +14,7 @@
   },
   "peerDependencies": {
     "@opennetwork/progressive-merge": "^5.1.1",
-    "@opennetwork/vnode": "^20.0.0",
+    "@opennetwork/vnode": "^21.1.0",
     "iterable": "^5.6.0",
     "microtask-collector": "^3.1.0"
   },
@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@opennetwork/progressive-merge": "^5.1.1",
-    "@opennetwork/vnode": "^20.0.0",
+    "@opennetwork/vnode": "^21.1.0",
     "@types/jsdom": "^12.2.4",
     "@types/node": "^14.14.35",
     "esm": "^3.2.25",
