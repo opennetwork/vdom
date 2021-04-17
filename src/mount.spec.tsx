@@ -1,13 +1,9 @@
 import { h, createFragment, hydrate, Fragment } from "@opennetwork/vnode";
-import JSDOM from "jsdom";
 import { DOMVContext } from "./context";
 import { Native } from "./native";
 import { assertElement } from "./document-node";
 
 describe("mount", () => {
-    const dom = new JSDOM.JSDOM();
-    const window = dom.window;
-    const document = window.document;
 
     const childCountModifier = 3 + Math.round(Math.random() * 20);
 
@@ -270,8 +266,6 @@ describe("mount", () => {
 
         const firstChild = root.firstChild;
         expect(firstChild).toBeTruthy();
-
-        console.log({ firstChild });
 
         assertElement(firstChild);
         expect(firstChild.getAttribute("data-testid")).toEqual(id);

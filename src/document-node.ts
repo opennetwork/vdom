@@ -35,15 +35,20 @@ export function assertElement(node?: unknown): asserts node is Element {
   }
 }
 
+function assertType(value: NativeOptionsVNode): asserts value is NativeOptionsVNode & { options: { type: "Text" | "Element" } } {
+  const type: string = value.options.type;
+  if (!(type === "Element" || type === "Text")) {
+    throw new Error(`Expected Element or Text, received ${type}`);
+  }
+}
+
 export function isExpectedNode(expected: NativeOptionsVNode, given: ChildNode): given is DocumentNode {
   if (!given) {
     return false;
   }
+  assertType(expected);
   if (expected.options.type === "Text") {
     return isText(given);
-  }
-  if (expected.options.type !== "Element") {
-    throw new Error(`Expected Element or Text, received ${expected.options.type}`);
   }
   if (!isElement(given)) {
     return false;
@@ -52,6 +57,7 @@ export function isExpectedNode(expected: NativeOptionsVNode, given: ChildNode): 
 }
 
 export async function getDocumentNode(root: Element, node: NativeOptionsVNode): Promise<Text | Element> {
+  assertType(node);
   if (typeof node.options.getDocumentNode === "function") {
     let result = node.options.getDocumentNode(root, node);
     if (isPromise(result)) {
@@ -61,10 +67,8 @@ export async function getDocumentNode(root: Element, node: NativeOptionsVNode): 
       if (!isExpectedNode(node, result)) {
         if (node.options.type === "Text") {
           throw new Error(`Expected getDocumentNode to return a Text node`);
-        } else if (node.options.type === "Element") {
-          throw new Error(`Expected getDocumentNode to return an Element node with the localName ${node.source}, but didn't receive this`);
         } else {
-          throw new Error(`getDocumentNode returned an unexpected node type, expected ${node.options.type}, see https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType`);
+          throw new Error(`Expected getDocumentNode to return an Element node with the localName ${node.source}, but didn't receive this`);
         }
       }
       return result;
@@ -75,9 +79,6 @@ export async function getDocumentNode(root: Element, node: NativeOptionsVNode): 
       return node.options.instance;
     }
     return root.ownerDocument.createTextNode(node.source);
-  }
-  if (node.options.type !== "Element") {
-    throw new Error("type must be Text or Element");
   }
   if (isElement(node.options.instance)) {
     return node.options.instance;
