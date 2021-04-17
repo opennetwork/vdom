@@ -24,7 +24,7 @@
             ]
         },
         "jsx": "react",
-        "jsxFactory": "createVNode",
+        "jsxFactory": "h",
         "jsxFragmentFactory": "createFragment",
         "allowJs": true
     },

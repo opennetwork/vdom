@@ -1,12 +1,8 @@
-import { createVNode, hydrate, Fragment, VNodeRepresentationSource } from "@opennetwork/vnode";
+import { h, createFragment, hydrate, Fragment } from "@opennetwork/vnode";
 import JSDOM from "jsdom";
 import { DOMVContext } from "./context";
 import { Native } from "./native";
 import { assertElement } from "./document-node";
-
-function createFragment(options: Record<string, unknown>, ...children: VNodeRepresentationSource[]) {
-    return createVNode(Fragment, options, ...children);
-}
 
 describe("mount", () => {
     const dom = new JSDOM.JSDOM();
