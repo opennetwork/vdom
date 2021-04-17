@@ -5,7 +5,7 @@ export interface ElementDetails {
   disconnect: Map<SourceReference, (documentNode: Element | Text) => void | Promise<void>>;
 }
 
-export function createDocumentNodeDetails(): ElementDetails {
+export function createElementDetails(): ElementDetails {
   return {
     rendered: new Map<SourceReference, Element | Text>(),
     disconnect: new Map<SourceReference, (documentNode: Element | Text) => (void | Promise<void>)>()
@@ -18,7 +18,7 @@ export function assertElementDetails(details: unknown): asserts details is Eleme
   }
 }
 
-function isElementDetails(details: unknown): details is ElementDetails {
+export function isElementDetails(details: unknown): details is ElementDetails {
   function isElementDetailsLike(details: unknown): details is { rendered: unknown, disconnect: unknown } {
     return !!details;
   }

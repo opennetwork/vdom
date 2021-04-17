@@ -14,7 +14,7 @@ import { isElement, isExpectedNode, isText } from "./document-node";
 import { NativeOptionsVNode } from "./options";
 import { getDocumentNode } from "./document-node";
 import { mount, MountContext, TaskFn } from "./mount";
-import { assertElementDetails, createDocumentNodeDetails, ElementDetails } from "./element-details";
+import { assertElementDetails, createElementDetails, ElementDetails } from "./element-details";
 import { position, Position } from "./position";
 
 const CHILD_POSITION = Symbol("DOM Child Position");
@@ -99,7 +99,7 @@ export class DOMVContext<O extends RenderOptions = RenderOptions> extends WeakVC
     let elementDetails = map.get(documentNode);
     if (!elementDetails) {
       // If we have no tree, we can make them on the fly
-      elementDetails = createDocumentNodeDetails();
+      elementDetails = createElementDetails();
       map.set(documentNode, elementDetails);
     }
     // If we are getting details from within a tree, we expect them!
