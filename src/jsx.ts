@@ -1,4 +1,18 @@
+import { Fragment } from "@opennetwork/vnode";
+
 export {};
+
+
+declare global {
+  namespace JSX {
+
+    interface IntrinsicElements {
+      [key: string]: Record<string, unknown>;
+      [Fragment]: Record<string, unknown>;
+    }
+  }
+}
+
 //
 // type DOMElement = Element;
 //

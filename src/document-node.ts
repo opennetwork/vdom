@@ -1,6 +1,8 @@
 import { isPromise } from "iterable";
 import { NativeOptionsVNode } from "./options";
 
+export type DocumentNode = Element | Text;
+
 export function isNode(value: unknown): value is Node {
   function isNodeLike(value: unknown): value is { nodeType?: unknown, TEXT_NODE?: unknown, ELEMENT_NODE?: unknown } {
     return !!value;
@@ -21,7 +23,19 @@ export function isElement(node?: unknown): node is Element {
   return isNode(node) && typeof node.nodeType === "number" && node.nodeType === node.ELEMENT_NODE;
 }
 
-export function isExpectedNode(expected: NativeOptionsVNode, given: ChildNode): given is (Text | Element) {
+export function assertText(node?: unknown): asserts node is Text {
+  if (!isText(node)) {
+    throw new Error("Expected Text");
+  }
+}
+
+export function assertElement(node?: unknown): asserts node is Element {
+  if (!isElement(node)) {
+    throw new Error("Expected Element");
+  }
+}
+
+export function isExpectedNode(expected: NativeOptionsVNode, given: ChildNode): given is DocumentNode {
   if (!given) {
     return false;
   }

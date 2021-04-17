@@ -3,10 +3,11 @@
         "module": "esnext",
         "lib": [
             "es2018",
+            "esnext",
             "dom"
         ],
         "types": [
-
+          "jest"
         ],
         "esModuleInterop": true,
         "target": "esnext",
@@ -21,7 +22,11 @@
                 "node_modules/*",
                 "src/types/*"
             ]
-        }
+        },
+        "jsx": "react",
+        "jsxFactory": "createVNode",
+        "jsxFragmentFactory": "createFragment",
+        "allowJs": true
     },
     "include": [
         "src/**/*"
