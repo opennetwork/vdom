@@ -3,8 +3,6 @@ import {
     assertText, getDocumentNode, isExpectedNode
 } from "./document-node";
 import { NativeOptionsVNode } from "./options";
-import { VNode } from "@opennetwork/vnode";
-import { ElementDOMNative, ElementDOMNativeVNode } from "./element";
 
 describe("document node", function () {
 
