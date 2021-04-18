@@ -1,5 +1,5 @@
 import { Fragment, FragmentVNode, isFragmentVNode, isNativeVNode, NativeVNode, VNode } from "@opennetwork/vnode";
-import { ElementDOMNativeVNode } from "./element";
+import { DOMNativeVNode } from "./node";
 import { NativeOptions } from "./options";
 import { children } from "./children";
 
@@ -7,7 +7,7 @@ const FragmentDOMNativeVNodeSymbol = Symbol("Fragment DOM Native VNode");
 
 export interface FragmentDOMNativeVNode extends NativeVNode {
   reference: typeof Fragment;
-  children: AsyncIterable<ElementDOMNativeVNode[]>;
+  children: AsyncIterable<DOMNativeVNode[]>;
   [FragmentDOMNativeVNodeSymbol]: true;
 }
 

@@ -1,35 +1,35 @@
 import { VNode } from "@opennetwork/vnode";
-import { ElementDOMNativeVNode, isElementDOMNativeVNode } from "./element";
+import { DOMNativeVNode, isDOMNativeVNode } from "./node";
 import { LaneInput, merge } from "@opennetwork/progressive-merge";
 import { FragmentDOMNativeVNode, isFragmentDOMNativeVNode } from "./fragment";
 import { Native } from "./native";
 import { withOptions } from "./with-options";
 import { Input } from "@opennetwork/progressive-merge/dist/async";
 
-export function children(node: VNode): AsyncIterable<ElementDOMNativeVNode[]> {
+export function children(node: VNode): AsyncIterable<DOMNativeVNode[]> {
   return {
     async *[Symbol.asyncIterator]() {
       yield *childrenGenerator();
     }
   };
-  async function *childrenGenerator(): AsyncIterable<ElementDOMNativeVNode[]> {
+  async function *childrenGenerator(): AsyncIterable<DOMNativeVNode[]> {
     if (!node.children) return;
     for await (const children of node.children) {
       if (!children.length) {
         continue;
       }
-      if (children.every(isElementDOMNativeVNode)) {
+      if (children.every(isDOMNativeVNode)) {
         yield [...children];
         continue;
       }
       // We have a bunch of iterables, async or not, that will provide an array of
       // ElementDOMNativeVNode for each iteration
-      const lanes: LaneInput<ElementDOMNativeVNode[]> = children
+      const lanes: LaneInput<DOMNativeVNode[]> = children
         .map(withOptions({}, Native))
         .map(elementChildren);
-      const merged: AsyncIterable<ReadonlyArray<ElementDOMNativeVNode[] | undefined>> = merge(lanes);
+      const merged: AsyncIterable<ReadonlyArray<DOMNativeVNode[] | undefined>> = merge(lanes);
       for await (const parts of merged) {
-        yield parts.reduce<ElementDOMNativeVNode[]>(
+        yield parts.reduce<DOMNativeVNode[]>(
           (updates , part) => updates.concat(part ?? []),
           []
         );
@@ -37,7 +37,7 @@ export function children(node: VNode): AsyncIterable<ElementDOMNativeVNode[]> {
     }
   }
 
-  function elementChildren(node: FragmentDOMNativeVNode | ElementDOMNativeVNode): Input<ElementDOMNativeVNode[]> {
+  function elementChildren(node: FragmentDOMNativeVNode | DOMNativeVNode): Input<DOMNativeVNode[]> {
     return isFragmentDOMNativeVNode(node) ? node.children : [[node]];
   }
 }

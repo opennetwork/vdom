@@ -9,7 +9,7 @@ import {
 } from "@opennetwork/vnode";
 import { assertDOMNativeVNode } from "./native";
 import { isFragmentDOMNativeVNode } from "./fragment";
-import { isElementDOMNativeVNode } from "./element";
+import { isDOMNativeVNode } from "./node";
 import { isElement, isExpectedNode, isText } from "./document-node";
 import { NativeOptionsVNode } from "./options";
 import { getDocumentNode } from "./document-node";
@@ -36,9 +36,9 @@ export class DOMVContext<O extends RenderOptions = RenderOptions> extends WeakVC
     assertDOMNativeVNode(node);
     if (isFragmentDOMNativeVNode(node)) {
       return this.commitChildren(this.options.root, node, tree);
-    } else if (isElementDOMNativeVNode(node)) {
+    } else if (isDOMNativeVNode(node)) {
       if (!tree) {
-        throw new Error("Expected a tree with ElementDOMNativeVNode, entry point should be a FragmentDOMNativeVNode");
+        throw new Error("Expected a tree with DOMNativeVNode, entry point should be a FragmentDOMNativeVNode");
       }
       this.eventsTarget.hydrate.add({
         node,
