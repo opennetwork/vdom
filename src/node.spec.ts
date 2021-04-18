@@ -60,7 +60,7 @@ describe("node", () => {
         options: {}
       });
       assertDOMNativeVNode(node);
-      const result = createVNode(node, node.options);
+      const result = createVNode(node);
       expect(result.reference).toEqual(reference);
     });
 
@@ -74,7 +74,7 @@ describe("node", () => {
       const result = createVNode({
         ...node,
         reference: undefined
-      }, node.options);
+      });
       expect(result.reference).toBeTruthy();
       expect(typeof result.reference).toEqual("symbol");
       expect(typeof result.reference === "symbol" && result.reference.toString())

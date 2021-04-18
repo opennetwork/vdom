@@ -11,15 +11,12 @@ export interface FragmentDOMNativeVNode extends NativeVNode {
   [FragmentDOMNativeVNodeSymbol]: true;
 }
 
-export function FragmentDOMNative(options: Partial<NativeOptions>, node: VNode): FragmentDOMNativeVNode {
+export function createFragment(node: VNode): FragmentDOMNativeVNode {
   const fragment: FragmentDOMNativeVNode = {
     ...node,
     children: children(node),
     reference: Fragment,
-    options: options === node.options ? node.options : {
-      ...node.options,
-      ...options
-    },
+    options: node.options,
     native: true,
     [FragmentDOMNativeVNodeSymbol]: true
   };

@@ -6,7 +6,7 @@ import {
   isDOMNativeCompatibleVNode,
   isDOMNativeVNode
 } from "./node";
-import { FragmentDOMNative, FragmentDOMNativeVNode, isFragmentDOMNativeVNode } from "./fragment";
+import { createFragment, FragmentDOMNativeVNode, isFragmentDOMNativeVNode } from "./fragment";
 
 export type NativeVNode = DOMNativeVNode | FragmentDOMNativeVNode;
 
@@ -31,17 +31,16 @@ export function Native(options: Partial<NativeOptions>, node: VNode): NativeVNod
   const nativeOptions = getNativeOptions(node);
   if (nativeOptions && isDOMNativeCompatibleVNode(node)) {
     return createNode(
-      node,
-      isNativeOptions(node.options) ? node.options : {
-        ...nativeOptions,
-        ...node.options,
+      isNativeOptions(node.options) ? node : {
+        ...node,
+        options: {
+          ...nativeOptions,
+          ...(node.options ? node.options : {}),
+        }
       }
     );
   } else {
-    return FragmentDOMNative(
-      options,
-      node
-    );
+    return createFragment(node);
   }
 
   function isNativeOptions(options: unknown): options is NativeOptions {

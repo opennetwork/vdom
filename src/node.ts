@@ -20,9 +20,10 @@ export interface DOMNativeVNode extends NativeVNode {
 
 export interface DOMNativeCompatibleVNode extends VNode {
   source: MarshalledSourceReference;
+  options: NativeOptions;
 }
 
-export function createVNode(node: DOMNativeCompatibleVNode, options: NativeOptions) {
+export function createVNode(node: DOMNativeCompatibleVNode) {
   const native: DOMNativeVNode = {
     ...node,
     source: String(node.source),
@@ -30,7 +31,7 @@ export function createVNode(node: DOMNativeCompatibleVNode, options: NativeOptio
     native: true,
     // We're going to git these children a few times, so we want to retain our values
     children: children(node),
-    options,
+    options: node.options,
     [DOMNativeVNodeSymbol]: true
   };
   assertDOMNativeVNode(native);
