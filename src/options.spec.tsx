@@ -7,6 +7,14 @@ import {
 } from "./options";
 import { h, createFragment } from "@opennetwork/vnode";
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      p: Record<string, unknown>;
+    }
+  }
+}
+
 describe("options", () => {
 
   it

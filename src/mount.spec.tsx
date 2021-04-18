@@ -3,6 +3,16 @@ import { DOMVContext } from "./context";
 import { Native } from "./native";
 import { assertElement } from "./document-node";
 
+
+declare global {
+    namespace JSX {
+        interface IntrinsicElements {
+            div: Record<string, unknown>;
+            p: Record<string, unknown>;
+        }
+    }
+}
+
 describe("mount", () => {
 
     const childCountModifier = 3 + Math.round(Math.random() * 20);
