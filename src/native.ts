@@ -14,7 +14,7 @@ export function isNativeVNode(node: VNode): node is NativeVNode {
   return isDOMNativeVNode(node) || isFragmentDOMNativeVNode(node);
 }
 
-export function assertDOMNativeVNode(node: VNode): asserts node is NativeVNode {
+export function assertNativeVNode(node: VNode): asserts node is NativeVNode {
   if (!isNativeVNode(node)) {
     throw new Error("Expected DOMNativeVNode or FragmentDOMNativeVNode");
   }

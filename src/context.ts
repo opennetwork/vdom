@@ -7,7 +7,7 @@ import {
   WeakVContext,
   hydrateChildren
 } from "@opennetwork/vnode";
-import { assertDOMNativeVNode } from "./native";
+import { assertNativeVNode } from "./native";
 import { isFragmentDOMNativeVNode } from "./fragment";
 import { isDOMNativeVNode } from "./node";
 import { isElement, isExpectedNode, isText } from "./document-node";
@@ -33,7 +33,7 @@ export class DOMVContext<O extends RenderOptions = RenderOptions> extends WeakVC
   }
 
   async hydrate(node: VNode, tree?: Tree) {
-    assertDOMNativeVNode(node);
+    assertNativeVNode(node);
     if (isFragmentDOMNativeVNode(node)) {
       return this.commitChildren(this.options.root, node, tree);
     } else if (isDOMNativeVNode(node)) {
