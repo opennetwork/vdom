@@ -188,6 +188,93 @@ describe("mount", () => {
         expect(nextSibling).toEqual(root.lastChild);
     });
 
+    it("mounts before already rendered right sibling", async () => {
+        const root = document.createElement("div");
+        root.id = "root";
+
+        const context = new DOMVContext({
+            root
+        });
+
+        function QuickLoad({ id }: { id: string }) {
+            return <div attributes={{ "data-testid": id }} />;
+        }
+
+        async function SlowLoad({ id }: { id: string }) {
+            await new Promise(resolve => setTimeout(resolve, 20));
+            return <div attributes={{ "data-testid": id }} />;
+        }
+
+        function Component() {
+            return (
+                <>
+                    <SlowLoad id="slow-load" />
+                    <QuickLoad id="quick-load-1" />
+                    <QuickLoad id="quick-load-2" />
+                </>
+            );
+        }
+
+        await hydrate(context, Native({}, <Component />));
+
+        const firstChild = root.firstChild;
+        assertElement(firstChild);
+        expect(firstChild.getAttribute("data-testid")).toEqual("slow-load");
+        const secondChild = firstChild.nextSibling;
+        assertElement(secondChild);
+        expect(secondChild.getAttribute("data-testid")).toEqual("quick-load-1");
+        const thirdChild = secondChild.nextSibling;
+        assertElement(thirdChild);
+        expect(thirdChild.getAttribute("data-testid")).toEqual("quick-load-2");
+        expect(thirdChild.nextSibling).toBeFalsy();
+
+    });
+
+
+    it("mounts before already rendered left + next sibling", async () => {
+        const root = document.createElement("div");
+        root.id = "root";
+
+        const context = new DOMVContext({
+            root
+        });
+
+        function QuickLoad({ id }: { id: string }) {
+            return <div attributes={{ "data-testid": id }} onAfterRender={(documentNode: Element) => {
+                const unknown = document.createElement("div");
+                unknown.setAttribute("data-testid", "unknown-appended");
+                documentNode.parentElement.appendChild(unknown);
+            }} />;
+        }
+
+        async function SlowLoad({ id }: { id: string }) {
+            await new Promise(resolve => setTimeout(resolve, 20));
+            return <div attributes={{ "data-testid": id }} />;
+        }
+
+        function Component() {
+            return (
+                <>
+                    <QuickLoad id="quick-load-1" />
+                    <SlowLoad id="slow-load" />
+                </>
+            );
+        }
+
+        await hydrate(context, Native({}, <Component />));
+
+        const firstChild = root.firstChild;
+        assertElement(firstChild);
+        expect(firstChild.getAttribute("data-testid")).toEqual("quick-load-1");
+        const secondChild = firstChild.nextSibling;
+        assertElement(secondChild);
+        expect(secondChild.getAttribute("data-testid")).toEqual("slow-load");
+        const thirdChild = secondChild.nextSibling;
+        assertElement(thirdChild);
+        expect(thirdChild.getAttribute("data-testid")).toEqual("unknown-appended");
+
+    });
+
     it
         .concurrent
         .each([
@@ -270,6 +357,53 @@ describe("mount", () => {
         assertElement(firstChild);
         expect(firstChild.getAttribute("data-testid")).toEqual(id);
         expect(firstChild.innerHTML).toEqual(`content:${id}`);
+    });
+
+
+    it("onBeforeRender", async () => {
+
+        const root = document.createElement("div");
+        root.id = "root";
+
+        const context = new DOMVContext({
+            root
+        });
+
+        const expectedResult = `${Math.random()}`;
+
+        const instance = document.createElement("p");
+        const onBeforeRender = jest.fn();
+
+        function Component() {
+            return <p attributes={{"data-testid": "result"}} instance={instance} onBeforeRender={onBeforeRender}>{expectedResult}</p>;
+        }
+
+        await hydrate(context, Native({}, <Component />));
+
+        expect(onBeforeRender).toBeCalledWith(instance);
+    });
+
+    it("onAfterRender", async () => {
+
+        const root = document.createElement("div");
+        root.id = "root";
+
+        const context = new DOMVContext({
+            root
+        });
+
+        const expectedResult = `${Math.random()}`;
+
+        const instance = document.createElement("p");
+        const onAfterRender = jest.fn();
+
+        function Component() {
+            return <p attributes={{"data-testid": "result"}} instance={instance} onAfterRender={onAfterRender}>{expectedResult}</p>;
+        }
+
+        await hydrate(context, Native({}, <Component />));
+
+        expect(onAfterRender).toBeCalledWith(instance);
     });
 
 });

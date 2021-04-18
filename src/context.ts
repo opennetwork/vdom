@@ -127,17 +127,18 @@ export class DOMVContext<O extends RenderOptions = RenderOptions> extends WeakVC
   };
 
   [CHILD_POSITION]({ tree }: MountContext): Position | undefined  {
-    const { parent, reference } = tree;
-    if (!parent) {
-      return undefined; // No siblings, default behaviour for new root node
-    }
-    if (parent.children.length <= 1) {
-      return undefined; // No siblings
-    }
-    const { root } = this.options;
-    const referenceIndex = parent.children.indexOf(reference);
-    const elementDetails = this.getElementDetails(root);
-    const parentPosition = position(elementDetails, tree, parent.reference);
+    return undefined;
+    // const { parent, reference } = tree;
+    // if (!parent) {
+    //   return undefined; // No siblings, default behaviour for new root node
+    // }
+    // if (parent.children.length <= 1) {
+    //   return undefined; // No siblings
+    // }
+    // const { root } = this.options;
+    // const referenceIndex = parent.children.indexOf(reference);
+    // const elementDetails = this.getElementDetails(root);
+    // const parentPosition = position(elementDetails, tree, parent.reference);
   }
 
   async commit(node: NativeOptionsVNode, documentNode: Element | Text, tree: Tree) {

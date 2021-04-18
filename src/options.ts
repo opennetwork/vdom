@@ -12,9 +12,7 @@ export interface NativeOptions extends Record<string, unknown> {
   instance?: DOMNativeVNodeInstance;
   whenDefined?: boolean;
   onBeforeRender?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  onConnected?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  onRendered?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  onDisconnected?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
+  onAfterRender?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
   getDocumentNode?: (root: Element, node: NativeOptionsVNode) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>;
   attributes?: NativeAttributes;
 }

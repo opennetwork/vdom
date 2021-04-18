@@ -35,9 +35,6 @@ export async function mount(context: MountContext) {
     if (node.options.onBeforeRender) {
       await node.options.onBeforeRender(documentNode);
     }
-    if (node.options.onDisconnected) {
-      elementDetails.disconnect.set(node.reference, node.options.onDisconnected);
-    }
   }
 
   async function taskLifecycleAlreadyMounted(currentDocumentNode: Element | Text) {
@@ -134,10 +131,6 @@ export async function mount(context: MountContext) {
     for (const [reference, removableDocumentNode] of getRemovableDocumentNodes()) {
       root.removeChild(removableDocumentNode);
       elementDetails.rendered.delete(reference);
-      const disconnect = elementDetails.disconnect.get(node.reference);
-      if (disconnect) {
-        await disconnect(removableDocumentNode);
-      }
     }
 
     function getRemovableDocumentNodes() {
@@ -150,11 +143,8 @@ export async function mount(context: MountContext) {
 
   async function taskLifecycleAfter() {
     await taskLifecycleCleanupRemovableNodes();
-    if (node.options.onConnected) {
-      await node.options.onConnected(documentNode);
-    }
-    if (node.options.onRendered) {
-      await node.options.onRendered(documentNode);
+    if (node.options.onAfterRender) {
+      await node.options.onAfterRender(documentNode);
     }
   }
 
