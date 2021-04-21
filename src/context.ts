@@ -5,17 +5,18 @@ import {
   VContextEventsPair,
   VNode,
   WeakVContext,
-  hydrateChildren
+  hydrateChildren, VContextHydrateEvent
 } from "@opennetwork/vnode";
 import { assertNativeVNode } from "./native";
 import { isFragmentDOMNativeVNode } from "./fragment";
-import { isDOMNativeVNode } from "./node";
+import { DOMNativeVNode, isDOMNativeVNode } from "./node";
 import { isElement, isExpectedNode, isText } from "./document-node";
 import { NativeOptionsVNode } from "./options";
 import { getDocumentNode } from "./document-node";
 import { mount, MountContext, TaskFn } from "./mount";
 import { assertElementDetails, createElementDetails, ElementDetails } from "./element-details";
 import { position, Position } from "./position";
+import { VContextChildrenEvent, VContextCreateVNodeEvent } from "@opennetwork/vnode/src/vcontext-events";
 
 const CHILD_POSITION = Symbol("DOM Child Position");
 
@@ -24,11 +25,15 @@ export interface RenderOptions<C = unknown> {
   parent?: C;
 }
 
-export class DOMVContext<O extends RenderOptions = RenderOptions> extends WeakVContext {
+export type DOMHydrateEvent = VContextHydrateEvent<DOMNativeVNode>;
+
+export class DOMVContext<O extends RenderOptions = RenderOptions,
+  CreateEvent extends VContextCreateVNodeEvent = VContextCreateVNodeEvent,
+  ChildrenEvent extends VContextChildrenEvent = VContextChildrenEvent> extends WeakVContext<CreateEvent, ChildrenEvent, DOMHydrateEvent> {
 
   private committing: Promise<void> = Promise.resolve();
 
-  constructor(public options: O, weak?: WeakMap<object, unknown>, eventsPair: VContextEventsPair = createVContextEvents()) {
+  constructor(public options: O, weak?: WeakMap<object, unknown>, eventsPair: VContextEventsPair<CreateEvent, ChildrenEvent, DOMHydrateEvent> = createVContextEvents()) {
     super(weak, eventsPair);
   }
 

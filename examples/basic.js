@@ -1,16 +1,16 @@
 import dom from "./jsdom.js";
-import { render, DOMVContext } from "../dist/index.js";
+import { render, DOMVContext, createTimeline, marshalTimeline } from "../dist/index.js";
 import { createVNode } from "@opennetwork/vnode";
-import {clean} from "./clean.js";
 import { deferred } from "@opennetwork/progressive-merge/dist/deferred.js";
+import { v4 } from "uuid";
 
 const context = new DOMVContext({
   root: dom.window.document.body
 });
+const timelinePromise = createTimeline(context);
 
 const node = createVNode(
   async function *() {
-    console.log("Start");
     yield createVNode(
       "div",
       {
@@ -18,13 +18,11 @@ const node = createVNode(
         getDocumentNode: root => root.ownerDocument.createElement("div"),
         // This is run after we have have attached to to the DOM, and after we have run any more tasks
         // like setting attributes, but _before_ children are mounted
-        onBeforeRender: mounted => console.log("div", { mounted })
       },
       [
         createVNode("button", { reference: "button1" }, "some text", "text 2"),
         createVNode(
           async function *() {
-            console.log("Start 1");
 
             const { promise: firstButtonPromise, resolve: onBeforeRenderFirstButton } = deferred();
             yield createVNode(
@@ -71,7 +69,6 @@ const node = createVNode(
             // We can do this here if we wanted
             // ourSecondButton.setAttribute("key", "value");
 
-            console.log("End 1");
           },
           {
             reference: "gen1"
@@ -79,27 +76,15 @@ const node = createVNode(
         )
       ]
     );
-    console.log("End");
   },
   {}
 );
 
-render(
+await render(
   node,
   context
-)
-  .then(() => {
-    clean(dom.window.document.body);
-    console.log("Complete");
-    console.log(dom.serialize());
-    dom.window.document.body.innerHTML = "";
-  })
-  .catch(error => {
-    clean(dom.window.document.body);
-    console.log("Error");
-    console.log(dom.serialize());
-    console.log(error);
-    console.error(JSON.stringify(error, null, "  "));
-  });
+);
 
+await context.close();
 
+console.log(JSON.stringify(await marshalTimeline(await timelinePromise, v4), undefined, "  "));

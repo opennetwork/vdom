@@ -9,3 +9,4 @@ export { DOMNativeVNode, createVNode } from "./node";
 export { FragmentDOMNativeVNode, createFragment } from "./fragment";
 export { isDOMNativeVNode, assertDOMNativeVNode } from "./node";
 export { isFragmentDOMNativeVNode, assertFragmentDOMNativeVNode } from "./fragment";
+export * from "./timeline";
