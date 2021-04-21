@@ -36,6 +36,26 @@ describe("mount", () => {
 
     });
 
+    it("mount throws", async () => { const root = document.createElement("div");
+        root.id = "root";
+
+        const unexpected = Math.random();
+
+        const context = new DOMVContext({
+            root
+        });
+
+        const expectedError = new Error(`${Math.random()}`);
+
+        function *Component() {
+            yield <p>{unexpected}</p>;
+            throw expectedError;
+        }
+
+        await expect(hydrate(context, Native({}, <Component />))).rejects.toThrow(expectedError);
+        expect(root.children.length).toEqual(0);
+    });
+
     it("mounts empty but more complex", async () => {
 
         async function AsyncEmpty(): Promise<undefined> {
