@@ -16,35 +16,41 @@ export interface TimelineItem<HydrationEvent = DOMHydrateEvent> {
 
 export type Timeline = TimelineItem[];
 
-export async function createTimeline(context: DOMVContext, onUpdate?: (timeline: Timeline) => Promise<void>): Promise<Timeline> {
+export interface PerformanceProvider {
+  now(): number;
+  timeOrigin: number;
+}
+
+export async function createTimeline(context: DOMVContext, onUpdate?: (timeline: Timeline) => Promise<void>, givenPerformance?: PerformanceProvider): Promise<Timeline> {
   let currentTimeline: TimelineItem[] = [];
   const importedPerformance = await getPerformance();
-  const start = importedPerformance?.now() ?? Date.now();
+  const start = importedPerformance.now();
   const timeOrigin = importedPerformance.timeOrigin;
   for await (const nextEvents of context.events.hydrate) {
     const item: TimelineItem = {
       hydration: nextEvents,
       timeOrigin,
       start,
-      now: importedPerformance.now?.() ?? (start - Date.now())
+      now: importedPerformance.now()
     };
     currentTimeline = currentTimeline.concat(item);
     await onUpdate?.(currentTimeline);
   }
   return currentTimeline;
 
-  async function getPerformance(): Promise<typeof performance | undefined> {
-    if (typeof performance === "undefined") {
-      try {
-        // @ts-ignore
-        const module = await import("perf_hooks");
-        return module.performance;
-      } catch {
-        return undefined;
-      }
-    } else {
+  async function getPerformance(): Promise<PerformanceProvider> {
+    if (givenPerformance) {
+      return givenPerformance;
+    } else if (typeof performance !== "undefined") {
       return performance;
     }
+    const timeOrigin = Date.now();
+    return {
+      timeOrigin,
+      now() {
+        return Date.now() - timeOrigin;
+      }
+    };
   }
 }
 
