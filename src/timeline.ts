@@ -19,25 +19,29 @@ export type Timeline = TimelineItem[];
 export async function createTimeline(context: DOMVContext, onUpdate?: (timeline: Timeline) => Promise<void>): Promise<Timeline> {
   let currentTimeline: TimelineItem[] = [];
   const importedPerformance = await getPerformance();
-  const start = importedPerformance.now();
+  const start = importedPerformance?.now() ?? Date.now();
   const timeOrigin = importedPerformance.timeOrigin;
   for await (const nextEvents of context.events.hydrate) {
     const item: TimelineItem = {
       hydration: nextEvents,
       timeOrigin,
       start,
-      now: importedPerformance.now()
+      now: importedPerformance.now?.() ?? (start - Date.now())
     };
     currentTimeline = currentTimeline.concat(item);
     await onUpdate?.(currentTimeline);
   }
   return currentTimeline;
 
-  async function getPerformance(): Promise<typeof performance> {
+  async function getPerformance(): Promise<typeof performance | undefined> {
     if (typeof performance === "undefined") {
-      // @ts-ignore
-      const module = await import("perf_hooks");
-      return module.performance;
+      try {
+        // @ts-ignore
+        const module = await import("perf_hooks");
+        return module.performance;
+      } catch {
+        return undefined;
+      }
     } else {
       return performance;
     }
