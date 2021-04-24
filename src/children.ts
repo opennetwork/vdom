@@ -4,7 +4,7 @@ import { LaneInput, merge } from "@opennetwork/progressive-merge";
 import { FragmentDOMNativeVNode, isFragmentDOMNativeVNode } from "./fragment";
 import { Native } from "./native";
 import { withOptions } from "./with-options";
-import { Input } from "@opennetwork/progressive-merge/dist/async";
+import type { Input } from "@opennetwork/progressive-merge/dist/async";
 
 export function children(node: VNode): AsyncIterable<DOMNativeVNode[]> {
   return {

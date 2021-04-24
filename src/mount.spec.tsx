@@ -36,10 +36,12 @@ describe("mount", () => {
 
     });
 
-    it("mount throws", async () => { const root = document.createElement("div");
+    it("mount throws", async () => {
+
+        const root = document.createElement("div");
         root.id = "root";
 
-        const unexpected = Math.random();
+        const expectedContent = `${Math.random()}`;
 
         const context = new DOMVContext({
             root
@@ -48,12 +50,18 @@ describe("mount", () => {
         const expectedError = new Error(`${Math.random()}`);
 
         function *Component() {
-            yield <p>{unexpected}</p>;
+            yield <p>{expectedContent}</p>;
             throw expectedError;
         }
 
         await expect(hydrate(context, Native({}, <Component />))).rejects.toThrow(expectedError);
-        expect(root.children.length).toEqual(0);
+
+        // Our child will still be rendered
+        expect(root.children.length).toEqual(1);
+        const firstChild = root.firstChild;
+        assertElement(firstChild);
+        expect(firstChild.tagName.toUpperCase()).toEqual("P");
+        expect(firstChild.innerHTML).toEqual(expectedContent);
     });
 
     it("mounts empty but more complex", async () => {

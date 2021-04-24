@@ -16,7 +16,7 @@ import { getDocumentNode } from "./document-node";
 import { mount, MountContext, TaskFn } from "./mount";
 import { assertElementDetails, createElementDetails, ElementDetails } from "./element-details";
 import { position, Position } from "./position";
-import { VContextChildrenEvent, VContextCreateVNodeEvent } from "@opennetwork/vnode/src/vcontext-events";
+import type { VContextChildrenEvent, VContextCreateVNodeEvent } from "@opennetwork/vnode";
 
 const CHILD_POSITION = Symbol("DOM Child Position");
 
