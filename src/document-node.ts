@@ -1,7 +1,7 @@
 import { isPromise } from "iterable";
 import { NativeOptionsVNode } from "./options";
 
-export type DocumentNode = Element | Text;
+export type DocumentNode = Element | Text | Node;
 
 export function isNode(value: unknown): value is Node {
   function isNodeLike(value: unknown): value is { nodeType?: unknown, TEXT_NODE?: unknown, ELEMENT_NODE?: unknown } {
@@ -23,6 +23,12 @@ export function isElement(node?: unknown): node is Element {
   return isNode(node) && typeof node.nodeType === "number" && node.nodeType === node.ELEMENT_NODE;
 }
 
+export function assertNode(node?: unknown): asserts node is Node {
+  if (!isNode(node)) {
+    throw new Error("Expected Node");
+  }
+}
+
 export function assertText(node?: unknown): asserts node is Text {
   if (!isText(node)) {
     throw new Error("Expected Text");
@@ -35,14 +41,14 @@ export function assertElement(node?: unknown): asserts node is Element {
   }
 }
 
-function assertType(value: NativeOptionsVNode): asserts value is NativeOptionsVNode & { options: { type: "Text" | "Element" } } {
+function assertType(value: NativeOptionsVNode): asserts value is NativeOptionsVNode & { options: { type: "Text" | "Element" | "Node" } } {
   const type: string = value.options.type;
-  if (!(type === "Element" || type === "Text")) {
-    throw new Error(`Expected Element or Text, received ${type}`);
+  if (!(type === "Element" || type === "Text" || type === "Node")) {
+    throw new Error(`Expected Element, Node, or Text, received ${type}`);
   }
 }
 
-export function isExpectedNode(expected: NativeOptionsVNode, given: ChildNode): given is DocumentNode {
+export function isExpectedNode(expected: NativeOptionsVNode, given: Node): given is DocumentNode {
   if (!given) {
     return false;
   }
@@ -50,13 +56,16 @@ export function isExpectedNode(expected: NativeOptionsVNode, given: ChildNode): 
   if (expected.options.type === "Text") {
     return isText(given);
   }
-  if (!isElement(given)) {
-    return false;
+  if (expected.options.type === "Node") {
+    return isNode(given);
   }
-  return expected.source === given.localName;
+  if (expected.options.type === "Element") {
+    return isElement(given) && expected.source === given.localName;
+  }
+  return false;
 }
 
-export async function getDocumentNode(root: Element, node: NativeOptionsVNode): Promise<Text | Element> {
+export async function getDocumentNode(root: Element, node: NativeOptionsVNode): Promise<DocumentNode> {
   assertType(node);
   if (typeof node.options.getDocumentNode === "function") {
     let result = node.options.getDocumentNode(root, node);
@@ -80,7 +89,7 @@ export async function getDocumentNode(root: Element, node: NativeOptionsVNode): 
     }
     return root.ownerDocument.createTextNode(node.source);
   }
-  if (isElement(node.options.instance)) {
+  if (isNode(node.options.instance)) {
     return node.options.instance;
   }
   if (node.options.whenDefined && root.ownerDocument.defaultView.customElements && root.ownerDocument.defaultView.customElements.whenDefined) {

@@ -1,14 +1,15 @@
 import { SourceReference } from "@opennetwork/vnode";
+import { DocumentNode } from "./document-node";
 
 export interface ElementDetails {
-  rendered: Map<SourceReference, Element | Text>;
-  disconnect: Map<SourceReference, (documentNode: Element | Text) => void | Promise<void>>;
+  rendered: Map<SourceReference, DocumentNode>;
+  disconnect: Map<SourceReference, (documentNode: DocumentNode) => void | Promise<void>>;
 }
 
 export function createElementDetails(): ElementDetails {
   return {
-    rendered: new Map<SourceReference, Element | Text>(),
-    disconnect: new Map<SourceReference, (documentNode: Element | Text) => (void | Promise<void>)>()
+    rendered: new Map<SourceReference, DocumentNode>(),
+    disconnect: new Map<SourceReference, (documentNode: DocumentNode) => (void | Promise<void>)>()
   };
 }
 

@@ -1,19 +1,18 @@
 import { isFragmentVNode, isScalarVNode, VNode } from "@opennetwork/vnode";
-import { isElement, isText } from "./document-node";
+import { DocumentNode, isElement, isText } from "./document-node";
 
-export type DOMNativeVNodeType = "Element" | "Text";
-export type DOMNativeVNodeInstance = Element | Text;
+export type DOMNativeVNodeType = "Element" | "Text" | "Node";
 
 export type NativeAttributes = Record<string, string | boolean | number | undefined>;
 
 export interface NativeOptions extends Record<string, unknown> {
   type: DOMNativeVNodeType;
   is?: string;
-  instance?: DOMNativeVNodeInstance;
+  instance?: DocumentNode;
   whenDefined?: boolean;
-  onBeforeRender?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  onAfterRender?: (documentNode: DOMNativeVNodeInstance) => void | Promise<void>;
-  getDocumentNode?: (root: Element, node: NativeOptionsVNode) => DOMNativeVNodeInstance | Promise<DOMNativeVNodeInstance>;
+  onBeforeRender?: (documentNode: DocumentNode) => void | Promise<void>;
+  onAfterRender?: (documentNode: DocumentNode) => void | Promise<void>;
+  getDocumentNode?: (root: Element, node: NativeOptionsVNode) => DocumentNode | Promise<DocumentNode>;
   attributes?: NativeAttributes;
 }
 
@@ -115,7 +114,8 @@ export function isNativeOptions(options: object): options is NativeOptions {
     isNativeOptionsLike(options) &&
     (
       options.type === "Element" ||
-      options.type === "Text"
+      options.type === "Text" ||
+      options.type === "Node"
     ) &&
     isAttributesOptionsLike(options) &&
     isOnBeforeRenderOptionsLike(options) &&
@@ -129,6 +129,10 @@ export function isNativeOptions(options: object): options is NativeOptions {
 export function getNativeOptions(vnode: VNode): NativeOptions | undefined {
   if (isFragmentVNode(vnode)) {
     return undefined;
+  }
+
+  if (isTypeOptions(vnode.options, "Node")) {
+    return vnode.options;
   }
 
   if (isTypeOptions(vnode.options, "Text")) {

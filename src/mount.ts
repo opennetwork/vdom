@@ -1,5 +1,5 @@
 import { NativeOptionsVNode } from "./options";
-import { isElement } from "./document-node";
+import { DocumentNode, isElement } from "./document-node";
 import { setAttributes } from "./attributes";
 import { SourceReference, Tree } from "@opennetwork/vnode";
 import { position, Position } from "./position";
@@ -8,8 +8,6 @@ import { ElementDetails } from "./element-details";
 export interface TaskFn {
   (): Promise<void>;
 }
-
-type DocumentNode = Element | Text;
 
 export interface MountContext {
   queue(task: TaskFn): Promise<void>;
@@ -37,7 +35,7 @@ export async function mount(context: MountContext) {
     }
   }
 
-  async function taskLifecycleAlreadyMounted(currentDocumentNode: Element | Text) {
+  async function taskLifecycleAlreadyMounted(currentDocumentNode: DocumentNode) {
     // We have a known node for this reference, lets replace that
     if (documentNode !== currentDocumentNode) {
       root.replaceChild(
@@ -137,7 +135,7 @@ export async function mount(context: MountContext) {
       const renderedReferences = [...elementDetails.rendered.keys()];
       return renderedReferences
         .filter(reference => !tree.children.includes(reference))
-        .map((reference): [SourceReference, Element | Text] => [reference, elementDetails.rendered.get(reference)]);
+        .map((reference): [SourceReference, DocumentNode] => [reference, elementDetails.rendered.get(reference)]);
     }
   }
 

@@ -10,7 +10,7 @@ import {
 import { assertNativeVNode } from "./native";
 import { isFragmentDOMNativeVNode } from "./fragment";
 import { DOMNativeVNode, isDOMNativeVNode } from "./node";
-import { isElement, isExpectedNode, isText } from "./document-node";
+import { DocumentNode, isElement, isExpectedNode, isText } from "./document-node";
 import { NativeOptionsVNode } from "./options";
 import { getDocumentNode } from "./document-node";
 import { mount, MountContext, TaskFn } from "./mount";
@@ -146,7 +146,7 @@ export class DOMVContext<O extends RenderOptions = RenderOptions,
     // const parentPosition = position(elementDetails, tree, parent.reference);
   }
 
-  async commit(node: NativeOptionsVNode, documentNode: Element | Text, tree: Tree) {
+  async commit(node: NativeOptionsVNode, documentNode: DocumentNode, tree: Tree) {
     const { root } = this.options;
 
     await mount({
