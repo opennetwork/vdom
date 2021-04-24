@@ -1,6 +1,6 @@
 import dom from "./jsdom.js";
 import { render, DOMVContext, createTimeline, marshalTimeline } from "../dist/index.js";
-import { createVNode } from "@opennetwork/vnode";
+import { createNode } from "@opennetwork/vnode";
 import { deferred } from "@opennetwork/progressive-merge/dist/deferred.js";
 import { v4 } from "uuid";
 
@@ -9,9 +9,9 @@ const context = new DOMVContext({
 });
 const timelinePromise = createTimeline(context);
 
-const node = createVNode(
+const node = createNode(
   async function *() {
-    yield createVNode(
+    yield createNode(
       "div",
       {
         // We can hold onto our own node if we wanted to, or if we already had one
@@ -20,12 +20,12 @@ const node = createVNode(
         // like setting attributes, but _before_ children are mounted
       },
       [
-        createVNode("button", { reference: "button1" }, "some text", "text 2"),
-        createVNode(
+        createNode("button", { reference: "button1" }, "some text", "text 2"),
+        createNode(
           async function *() {
 
             const { promise: firstButtonPromise, resolve: onBeforeRenderFirstButton } = deferred();
-            yield createVNode(
+            yield createNode(
               "somename",
               {
                 reference: "a",
@@ -47,7 +47,7 @@ const node = createVNode(
             // ourFirstButton.setAttribute("key", "value");
 
             const { promise: secondButtonPromise, resolve: onBeforeRenderSecondButton } = deferred();
-            yield createVNode(
+            yield createNode(
               "button",
               {
                 reference: "b",

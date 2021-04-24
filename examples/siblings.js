@@ -1,10 +1,10 @@
 import dom from "./jsdom.js";
 import { render } from "../dist/index.js";
-import { createVNode } from "@opennetwork/vnode";
+import { createNode } from "@opennetwork/vnode";
 import htm from "htm";
 import {clean} from "./clean.js";
 
-const h = createVNode;
+const h = createNode;
 const html = htm.bind(h);
 
 async function *SiblingFinalInterval() {
